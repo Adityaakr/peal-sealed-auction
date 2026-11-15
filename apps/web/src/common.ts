@@ -34,6 +34,7 @@ export interface AppConfig {
   factory: Address;
   fusd: Address;
   pealt: Address;
+  committeeSetId?: Hex;
   auction?: Address;
   /** Local stack only: where the harness records ML-DSA-87 verdicts for the precompile stand-in. */
   attestUrl?: string;
@@ -207,6 +208,7 @@ export function header(title: string, cfg: AppConfig): void {
   $("#top").replaceChildren(
     el("strong", {}, "Peal Sealed Auction"),
     el("a", { href: `./index.html${q}` }, "Home"),
+    el("a", { href: `./issuer.html${q}` }, "Issue"),
     el("a", { href: `./bidder.html${q}` }, "Bid"),
     el("a", { href: `./committee.html${q}` }, "Committee"),
     el("a", { href: `./results.html${q}` }, "Results"),

@@ -189,6 +189,7 @@ export async function deploy(): Promise<void> {
         factory: d.factory,
         fusd: d.fusd,
         pealt: d.pealt,
+        committeeSetId: d.committeeSetId,
       },
       null,
       2,
