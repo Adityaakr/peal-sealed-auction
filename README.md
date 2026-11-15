@@ -32,6 +32,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `proxy/` | Read-only REST proxy for the PQC routes (GET, allowlisted paths only), because the public REST endpoint sends no CORS headers |
 | `scripts/local-stack.ts`, `scripts/local/stack.ts` | A long-running local chain for the pages: anvil, precompile stand-ins, contracts, a 2-of-3 committee with real keys, one open auction |
 | `scripts/web-smoke.ts` | Drives the pages through a whole auction in headless Chromium (`npm run web:smoke`) |
+| `scripts/testnet/` | Testnet operations: accounts (secrets outside the repo), setup (funding, ML-DSA and ML-KEM key registration, fUSD conversion), deploy (contracts and the 2-of-3 committee), demo (a whole auction with the real precompiles, inside scoped windows) |
 | `scripts/e2e-local.ts` | The whole auction on anvil with real ML-DSA-87, real QoreSeal and the kit's real `verifyMember` (`npm run e2e:local`) |
 | `test-ts/` | Vitest tests of the client with real QoreSeal and ML-DSA-87 |
 | `src/libraries/ClearingPrice.sol` | Uniform clearing over at most 256 price ticks; pro-rata at the clearing tick, rounded down |
@@ -42,7 +43,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `THREAT_MODEL.md` | Who can do what, and the residual risks |
 | `AI_USAGE.md` | Dated log of how AI agents built this, and what the human decided |
 
-Planned (later pull requests): testnet deploy and committee registration scripts, and an issuer page.
+Planned (later pull requests): an issuer page.
 
 The post-quantum building blocks come from the shared toolkit [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) at tag `v0.1.0`: `PqAuth` (ML-DSA-87 checks through `pqcKeyStatus` and `pqcVerify`), `Shamir` and `SealedSlot` (threshold key shares and the one-block cipher) as a Foundry submodule, and `threshold.ts` as a package.json git dependency.
 
@@ -134,6 +135,21 @@ Reads `QORE_MNEMONIC` from `~/.qore-peal-sealed-auction/committee1.env` (mode 06
 | Testnet | `qorechain-diana` | 9800 | `https://evm-testnet.qore.host` |
 
 Every EVM transaction on QoreChain needs a registered ML-DSA-87 key and a live EVM authorisation window; see `scripts/window.ts` (`npm run window status|register|open`). Keys and mnemonics are kept outside the repository and are never committed.
+
+### Testnet runbook
+
+The project uses six fresh throwaway accounts: a deployer (also the demo issuer), three committee members, and two bidders. The owner holds all three committee keys as separate accounts; this is disclosed and for the demo only (D3). Their mnemonics live in `~/.qore-peal-sealed-auction/<name>.env` (mode 0600).
+
+```sh
+npm run testnet -- accounts create   # once; prints addresses only
+# fund the deployer from the faucet (dashboard sign-in, an owner step)
+npm run testnet -- setup             # split funds, register ML-DSA-87 and ML-KEM-1024 keys, convert fUSD
+npm run testnet -- deploy            # contracts + committee; writes deployments/ and the pages' testnet config
+npm run testnet -- demo              # one whole auction with the real precompiles
+npm run testnet -- accounts status   # balances, keys, windows
+```
+
+The demo runs every EVM transaction inside a scoped window, so each account can call only the contracts it needs. It records every transaction hash in `deployments/demo-<auction>.json`.
 
 ## Prior work
 

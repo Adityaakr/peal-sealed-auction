@@ -18,7 +18,8 @@
     "web": "vite --config apps/web/vite.config.ts",
     "web:build": "vite build --config apps/web/vite.config.ts",
     "proxy": "tsx proxy/server.ts",
-    "web:smoke": "forge build && tsx scripts/web-smoke.ts"
+    "web:smoke": "forge build && tsx scripts/web-smoke.ts",
+    "testnet": "tsx scripts/testnet/cli.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "0.39.0",
