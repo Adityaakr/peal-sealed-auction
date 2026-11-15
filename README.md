@@ -26,7 +26,10 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `src/SealedAuction.sol` | One auction (a clone): commit, close, signed releases, on-chain key rebuild and decryption, finalize, pull-based claims |
 | `src/SealedAuctionFactory.sol` | Creates, funds and opens an auction in one call; paging |
 | `src/demo/PealT.sol`, `src/demo/DemoFaucet.sol` | PEAL-T demo sale token and a rate-limited faucet (testnet only) |
-| `client/abi.ts` | Contract ABIs for the TypeScript apps (`npm run abi`) |
+| `client/` | TypeScript client: plaintext codec, committee discovery and checks (`readCommittee`, `resolveCommittee` via the kit's `verifyMember`), bid sealing (`sealBid` via the kit's `sealSlot`), share opening and release signing (`openMemberShares`, `signRelease`), generated ABIs |
+| `apps/committee/` | `member.ts` (one member step: release after the on-chain close, optional keeper that opens bids and finalizes) and `daemon.ts` (the member's release daemon) |
+| `scripts/e2e-local.ts` | The whole auction on anvil with real ML-DSA-87, real QoreSeal and the kit's real `verifyMember` (`npm run e2e:local`) |
+| `test-ts/` | Vitest tests of the client with real QoreSeal and ML-DSA-87 |
 | `src/libraries/ClearingPrice.sol` | Uniform clearing over at most 256 price ticks; pro-rata at the clearing tick, rounded down |
 | `src/libraries/AuctionMath.sol` | Price ladder, escrow (rounded up) and payment (rounded down), fee |
 | `test/` | Foundry unit, fuzz and invariant tests on mocked precompiles (the kit's `PqTestBase`) |
@@ -35,7 +38,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `THREAT_MODEL.md` | Who can do what, and the residual risks |
 | `AI_USAGE.md` | Dated log of how AI agents built this, and what the human decided |
 
-Planned (later pull requests): `apps/web` (issuer, bidder and results pages), `apps/committee` (member page and daemon), `proxy/` (read-only REST proxy) and testnet scripts.
+Planned (later pull requests): `apps/web` (issuer, bidder and results pages), the committee member page, `proxy/` (read-only REST proxy) and testnet scripts.
 
 The post-quantum building blocks come from the shared toolkit [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) at tag `v0.1.0`: `PqAuth` (ML-DSA-87 checks through `pqcKeyStatus` and `pqcVerify`), `Shamir` and `SealedSlot` (threshold key shares and the one-block cipher) as a Foundry submodule, and `threshold.ts` as a package.json git dependency.
 
@@ -57,13 +60,16 @@ A bid that cannot open is excluded and refunded; it never fails the auction. The
 
 ### Gas on mocked precompiles
 
-From `forge test --gas-report`. The mock ML-DSA verifier hashes 4,627-byte signatures in the EVM, so release and join costs here are not testnet costs; `docs/spikes.md` will record the measured testnet numbers.
+Measured in the local end-to-end run (anvil). There `pqcVerify` is a cheap stand-in; on testnet each ML-DSA-87 check adds about 313k (design estimate, to be measured).
 
-| Call | Gas (mocked, median) |
+| Call | Gas on anvil |
 |---|---|
-| `commitBid` (3 envelopes of 1,752 bytes) | about 300k |
-| `openBids` (3 bids) | about 200k |
-| `finalize` | about 195k |
+| `registerSet` (3 members) | 1.62M, plus 3 `pqcVerify` |
+| `commitBid` (3 envelopes of 1,752 bytes) | 383k to 434k |
+| `submitRelease` (4 bids) | 456k, plus 1 `pqcVerify` |
+| `openBids` (4 bids) | 433k |
+| `finalize` | 243k |
+| `claim` | 61k to 128k |
 
 ## Build and test
 
@@ -76,7 +82,30 @@ forge test
 npm ci && npm run typecheck
 ```
 
-Tests run on Foundry's local EVM and need no network.
+Tests run on Foundry's local EVM and need no network. Client tests: `npm run test:ts`.
+
+### The whole auction, locally
+
+```sh
+npm run e2e:local
+```
+
+This starts anvil and runs one auction from start to finish:
+- A 2-of-3 committee registers real ML-DSA-87 joins and QoreSeal cards.
+- A bidder reads the committee and checks every member with the kit's `verifyMember`. A REST proxy that swaps a member's ML-KEM key is caught.
+- Three bidders seal bids with real ML-KEM-1024 + X25519 envelopes, and one more bid is junk.
+- After the on-chain close, members 1 and 2 open their shares in their own processes and release. Member 3 stays offline, and a forged release for member 3's slot is refused.
+- The contract rebuilds every key and decrypts the bids. A keeper excludes the junk bid and finalizes, and the claims end with the auction holding nothing.
+
+The only stand-ins are the two QoreChain precompiles, which the EVM cannot run. `MockPqcKeyStatus` holds the members' real public keys. `OraclePqcVerify` returns the verdict the harness got by checking each signature with real ML-DSA-87. Both are local only.
+
+### A committee member's daemon
+
+```sh
+npm run committee -- --member committee1 --auction 0x... [--keeper]
+```
+
+Reads `QORE_MNEMONIC` from `~/.qore-peal-sealed-auction/committee1.env` (mode 0600). The ML-DSA-87 key and the QoreSeal keys both derive from it. The daemon waits for the on-chain close, releases once, and as a keeper opens the bids and finalizes when the release window is over.
 
 ## Network
 
