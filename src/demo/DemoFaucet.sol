@@ -37,6 +37,8 @@ contract DemoFaucet {
         if (last != 0 && block.timestamp < uint256(last) + cooldown) revert CoolingDown(last + cooldown);
         uint256 available = token.balanceOf(address(this));
         if (amount > available) revert Empty(amount, available);
+        // Unix seconds fit in uint64 for billions of years.
+        // forge-lint: disable-next-line(unsafe-typecast)
         lastClaimAt[msg.sender] = uint64(block.timestamp);
         token.safeTransfer(msg.sender, amount);
         emit Claimed(msg.sender, amount);

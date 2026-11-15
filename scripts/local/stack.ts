@@ -16,8 +16,8 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { deriveSealKeys, signRecipientCard, toBase64Url, type SealKeyPair } from "@qorechain/qoreseal";
 import { classicalKeyFromPrivate } from "@qorechain/qoresign";
 import { deriveUnifiedAccount, generateMnemonic, pqcSign, pqcVerify, type UnifiedAccount } from "@qorechain/sdk";
@@ -71,6 +71,13 @@ export function localWebConfig(s: Stack, auction: Address) {
 }
 
 export const LOCAL_WEB_CONFIG = join(ROOT, "apps", "web", "public", "config.local.json");
+
+/** Write the pages' local config (the public/ directory is not in git until a testnet config lands). */
+export function writeLocalWebConfig(s: Stack, auction: Address): string {
+  mkdirSync(dirname(LOCAL_WEB_CONFIG), { recursive: true });
+  writeFileSync(LOCAL_WEB_CONFIG, JSON.stringify(localWebConfig(s, auction), null, 2));
+  return LOCAL_WEB_CONFIG;
+}
 
 export function artifact(file: string, name: string): { abi: Abi; bytecode: Hex; deployed: Hex } {
   const j = JSON.parse(readFileSync(join(ROOT, "out", file, `${name}.json`), "utf8"));

@@ -13,12 +13,11 @@
  * headless shell (`npx playwright-core install --only-shell chromium`).
  * Screenshots go to SHOTS_DIR when it is set.
  */
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright-core";
 import { parseUnits } from "viem";
 import { createServer } from "vite";
-import { LOCAL_WEB_CONFIG, localWebConfig, startStack } from "./local/stack.ts";
+import { startStack, writeLocalWebConfig } from "./local/stack.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const shots = process.env.SHOTS_DIR?.trim();
@@ -29,7 +28,7 @@ let failed = false;
 try {
   const auction = await s.createAuction();
   for (const b of s.bidders) await s.mintFusd(b.address, parseUnits("1000", 6));
-  writeFileSync(LOCAL_WEB_CONFIG, JSON.stringify(localWebConfig(s, auction), null, 2));
+  writeLocalWebConfig(s, auction);
   await vite.listen();
   const base = vite.resolvedUrls!.local[0]!.replace(/\/$/, "");
 

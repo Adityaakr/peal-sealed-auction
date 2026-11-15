@@ -9,16 +9,14 @@
  * apps/web/public/config.local.json for the pages. That file holds throwaway
  * local mnemonics; it is gitignored. Stop with Ctrl-C.
  */
-import { writeFileSync } from "node:fs";
 import { parseUnits } from "viem";
-import { LOCAL_WEB_CONFIG, localWebConfig, startStack } from "./local/stack.ts";
+import { startStack, writeLocalWebConfig } from "./local/stack.ts";
 
 const s = await startStack({ port: Number(process.env.ANVIL_PORT ?? 18545), restPort: Number(process.env.REST_PORT ?? 18546) });
 const auction = await s.createAuction({ name: "Local demo", details: "PEAL-T for fUSD" });
 for (const b of s.bidders) await s.mintFusd(b.address, parseUnits("1000", 6));
 
-writeFileSync(LOCAL_WEB_CONFIG, JSON.stringify(localWebConfig(s, auction), null, 2));
-const path = LOCAL_WEB_CONFIG;
+const path = writeLocalWebConfig(s, auction);
 console.log(`auction  ${auction}\nwrote ${path}\nlocal stack running; Ctrl-C to stop`);
 const stop = () => {
   s.stop();
