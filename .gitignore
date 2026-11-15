@@ -15,3 +15,8 @@ dist/
 !.env.example
 *.key
 *.mnemonic
+
+# Web app
+apps/web/dist/
+# Local stack config: throwaway local mnemonics, written by npm run local:stack
+apps/web/public/config.local.json

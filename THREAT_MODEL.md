@@ -48,4 +48,6 @@ Peal Sealed Auction: what is protected, against whom, and what is not. This file
 - Escrow amounts are public and bound each bid's value from above. Bidders may over-escrow; the excess is refunded.
 - In the demo all three committee keys are held by the project owner as three separate accounts (disclosed, demo only).
 - QoreSeal 0.1.0 is a draft pending external review.
+- The web pages' dev-account mode takes a testnet mnemonic in the page. It never stores or sends it, but a compromised page or browser could read it. It is for the demo with throwaway testnet accounts only; no real funds and no public bidding (D8).
+- The local stack's `OraclePqcVerify` and its `/local/attest` endpoint let anyone record a signature verdict. They exist only for local runs, are never deployed, and their source says so.
 - The REST endpoint used to read ML-KEM keys is untrusted; keys are accepted only if their hash equals the member-signed hash in the registry.

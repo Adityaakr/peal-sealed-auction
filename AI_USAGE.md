@@ -40,3 +40,7 @@ Recorded from the approved combined design (2026-11-15/16):
 - Human: merged the second pull request.
 - Worker wrote the TypeScript client (`client/`): committee discovery and checks through the kit's `verifyMember`, bid sealing through the kit's `sealSlot`, share opening, and release signing with local ML-DSA-87 verification. It also wrote the committee member step and daemon (`apps/committee/`), vitest tests with real QoreSeal and ML-DSA-87, and a local end-to-end run on anvil.
 - Design choice by the worker: the local run uses real ML-DSA-87 signatures. The EVM cannot verify them, so a local-only stand-in (`OraclePqcVerify`) returns the verdict the harness got from real ML-DSA-87 verification. This keeps the forged-release refusal real instead of mocking every signature as valid.
+- Human: merged the third pull request.
+- Worker wrote the web pages (bidder, committee member, results), the read-only REST proxy, and a long-running local stack. It also wrote `web:smoke`, which drives the pages through a whole auction in headless Chromium. The bids are sealed, and the shares opened and releases signed, inside the browser.
+- What went wrong: the orchestrator's browser tool (`chrome-devtools-axi`) could not attach to a browser in this session. The worker used Playwright's headless Chromium instead, first from a scratch script, then as `scripts/web-smoke.ts` in CI.
+

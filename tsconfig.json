@@ -9,10 +9,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
-    "lib": ["ES2022", "DOM"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["scripts", "client", "apps", "test-ts"]
+  "include": ["scripts", "client", "apps", "test-ts", "proxy"]
 }

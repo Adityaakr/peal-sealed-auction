@@ -4,7 +4,7 @@ A uniform-price sealed-bid auction on QoreChain whose bids no single key holder 
 
 Entry in the QoreChain "Build Before Q-Day" Developer Fest, category **Encrypted Apps**. Licence: Apache-2.0.
 
-> Status (2026-11-16): work in progress. The contracts (clearing rule, committee registry, auction lifecycle, factory, demo token and faucet) are written and tested on mocked precompiles. The committee and bidder apps, the local end-to-end run and the testnet deployment follow in later pull requests. Deployed addresses will be listed here once they exist.
+> Status (2026-11-16): work in progress. The contracts, the TypeScript client, the committee daemon and the web pages (bidder, committee member, results) are written and tested end to end on a local chain, in a real headless browser. The testnet deployment follows. Deployed addresses will be listed here once they exist.
 
 ## The problem
 
@@ -28,6 +28,10 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `src/demo/PealT.sol`, `src/demo/DemoFaucet.sol` | PEAL-T demo sale token and a rate-limited faucet (testnet only) |
 | `client/` | TypeScript client: plaintext codec, committee discovery and checks (`readCommittee`, `resolveCommittee` via the kit's `verifyMember`), bid sealing (`sealBid` via the kit's `sealSlot`), share opening and release signing (`openMemberShares`, `signRelease`), generated ABIs |
 | `apps/committee/` | `member.ts` (one member step: release after the on-chain close, optional keeper that opens bids and finalizes) and `daemon.ts` (the member's release daemon) |
+| `apps/web/` | Web pages (Vite, plain TypeScript): bidder (seals bids in the browser), committee member (opens shares and signs releases in the browser), results (and the permissionless steps) |
+| `proxy/` | Read-only REST proxy for the PQC routes (GET, allowlisted paths only), because the public REST endpoint sends no CORS headers |
+| `scripts/local-stack.ts`, `scripts/local/stack.ts` | A long-running local chain for the pages: anvil, precompile stand-ins, contracts, a 2-of-3 committee with real keys, one open auction |
+| `scripts/web-smoke.ts` | Drives the pages through a whole auction in headless Chromium (`npm run web:smoke`) |
 | `scripts/e2e-local.ts` | The whole auction on anvil with real ML-DSA-87, real QoreSeal and the kit's real `verifyMember` (`npm run e2e:local`) |
 | `test-ts/` | Vitest tests of the client with real QoreSeal and ML-DSA-87 |
 | `src/libraries/ClearingPrice.sol` | Uniform clearing over at most 256 price ticks; pro-rata at the clearing tick, rounded down |
@@ -38,7 +42,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `THREAT_MODEL.md` | Who can do what, and the residual risks |
 | `AI_USAGE.md` | Dated log of how AI agents built this, and what the human decided |
 
-Planned (later pull requests): `apps/web` (issuer, bidder and results pages), the committee member page, `proxy/` (read-only REST proxy) and testnet scripts.
+Planned (later pull requests): testnet deploy and committee registration scripts, and an issuer page.
 
 The post-quantum building blocks come from the shared toolkit [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) at tag `v0.1.0`: `PqAuth` (ML-DSA-87 checks through `pqcKeyStatus` and `pqcVerify`), `Shamir` and `SealedSlot` (threshold key shares and the one-block cipher) as a Foundry submodule, and `threshold.ts` as a package.json git dependency.
 
@@ -98,6 +102,22 @@ This starts anvil and runs one auction from start to finish:
 - The contract rebuilds every key and decrypts the bids. A keeper excludes the junk bid and finalizes, and the claims end with the auction holding nothing.
 
 The only stand-ins are the two QoreChain precompiles, which the EVM cannot run. `MockPqcKeyStatus` holds the members' real public keys. `OraclePqcVerify` returns the verdict the harness got by checking each signature with real ML-DSA-87. Both are local only.
+
+### The web pages, locally
+
+```sh
+npm run local:stack      # terminal 1: anvil, contracts, committee, one open auction
+npm run web              # terminal 2: http://localhost:5173
+```
+
+Pick a throwaway account on each page:
+- **Bid**: check the committee's keys, then seal and commit. Sealing happens in the browser; the page shows the ciphertext, the three 1,752-byte envelopes and the time it took.
+- **Committee**: as member 1 or 2, open your shares in the browser. Each one is a single random number that says nothing about any bid. Then sign the release with ML-DSA-87 and submit it.
+- **Results**: close, open, finalize and pay out. These steps are permissionless, and the local chain can skip time.
+
+`npm run web:smoke` does the same in headless Chromium and is part of CI.
+
+For the testnet, run the proxy with `npm run proxy` (or use the dev server's `/rest` route). Pages take `?net=testnet` and read `apps/web/public/config.testnet.json`. Accounts there are dev accounts: a testnet mnemonic pasted into the page, kept in that tab's memory only. That mode is for the demo; there is no public bidding (D8).
 
 ### A committee member's daemon
 

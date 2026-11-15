@@ -39,7 +39,8 @@ jobs:
       - run: npm run test:ts
 
   e2e-local:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 has no headless shell for Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,3 +55,6 @@ jobs:
       - run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci
       - run: npm run e2e:local
+      - run: npx playwright-core install --only-shell chromium
+      - run: npm run web:build
+      - run: npm run web:smoke
