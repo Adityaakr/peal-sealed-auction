@@ -39,7 +39,8 @@ jobs:
       - run: npm run test:ts
 
   e2e-local:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 has no headless shell for Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
