@@ -21,8 +21,16 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | `registerSet` gas | 1.62M for 3 members without the real `pqcVerify` | same |
 | Do QoreSign cards made from SDK-derived keys verify? | Yes: `signRecipientCard` with `classicalKeyFromPrivate(acc.privateKey, "eth_secp256k1")` and `{ secretKey: acc.pqc.secretKey }` passes the kit's `verifyMember` against `acc.pqc.publicKey` | same |
 
+## 2026-11-16, browser and testnet endpoints
+
+| Question | Finding | How |
+|---|---|---|
+| Does the public EVM RPC allow browser calls? | Yes: preflight answers `access-control-allow-origin: *`, methods `POST`, headers `content-type`; `eth_chainId` returns `0x2648` (9800) | `curl -X OPTIONS -H "Origin: …" https://evm-testnet.qore.host` |
+| Does the public REST endpoint allow browser calls? | No CORS headers, so the pages read it through `proxy/` (or the dev server's `/rest`) | `curl -i -H "Origin: …" https://api-testnet.qore.host/qorechain/pqc/v1/params` |
+| Is the KEM key route live? | Yes: `/qorechain/pqc/v1/kem/{qor1…}` answers `{"found":false,"key":null}` for an account without a key | through `npm run proxy` |
+| Do the SDK, QoreSeal and the kit's `threshold.ts` run in a browser bundle? | Yes, with Vite 6 and target ES2022, no polyfills; about 2.9 MB unminified-equivalent bundle (580 KB gzip). Account derivation, ML-DSA-87 signing, QoreSeal keys and sealing all run in headless Chromium | `npm run web:smoke` |
+
 ## Open questions (to settle on testnet)
 
 - Gas of `submitRelease` with one `pqcVerify` and n shares at realistic bid counts.
 - Calldata cost of `commitBid` with three 1,752-byte envelopes.
-- Whether the public EVM RPC accepts browser calls (CORS) and whether REST needs the proxy for the KEM route.
