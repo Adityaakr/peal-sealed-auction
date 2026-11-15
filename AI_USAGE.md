@@ -29,3 +29,11 @@ Recorded from the approved combined design (2026-11-15/16):
 - Worker ported the uniform clearing rule and the decimal-safe price math from Peal as fresh code (`ClearingPrice.sol`, `AuctionMath.sol`), rewrote Peal's clearing test cases, and added a differential fuzz test against a slow reference model of the rule. 26 tests pass.
 - Worker wrote the first README, this file and `THREAT_MODEL.md`.
 - Not done by the AI: no key was created, no transaction was sent, nothing was deployed.
+- Human: merged the first pull request.
+- Worker wrote the committee registry (ML-DSA-87 joins binding ML-KEM key hashes and card hashes), the sealed auction lifecycle (commit, close, signed releases, on-chain key rebuild and decryption, finalize, claims), the factory, and the PEAL-T demo token and faucet. Structure ported from Peal; the sealing layer is new.
+- Worker built against interfaces before the toolkit was tagged, using a read-only local copy that was never committed. It switched to `qore-pq-kit` `v0.1.0` (`PqAuth`, `Shamir`, `SealedSlot`, test mocks) as soon as that tag existed.
+- What the worker found and changed:
+  - The toolkit defines a card hash as keccak256 of the card's signed text, so the registry now takes the member-signed hash instead of hashing raw card bytes.
+  - Peal's settlement could credit the issuer a few base units more than winners paid. Proceeds here are the exact sum of payments.
+  - A bidder could commit a share hash of a value outside the field. That share would then revert key recombination for every caller. Releases now refuse such shares; a member flags them instead.
+- Tests: 105 Foundry tests (unit, fuzz with exact token conservation over whole auctions, and invariants with a random-actor handler). Probe invariants were used once to confirm the handler reaches settled auctions with burned bonds, then removed.

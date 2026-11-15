@@ -32,5 +32,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # The qore-pq-kit git dependency is recorded as git+ssh; fetch it over https.
+      - run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci
       - run: npm run typecheck
