@@ -37,3 +37,6 @@ Recorded from the approved combined design (2026-11-15/16):
   - Peal's settlement could credit the issuer a few base units more than winners paid. Proceeds here are the exact sum of payments.
   - A bidder could commit a share hash of a value outside the field. That share would then revert key recombination for every caller. Releases now refuse such shares; a member flags them instead.
 - Tests: 105 Foundry tests (unit, fuzz with exact token conservation over whole auctions, and invariants with a random-actor handler). Probe invariants were used once to confirm the handler reaches settled auctions with burned bonds, then removed.
+- Human: merged the second pull request.
+- Worker wrote the TypeScript client (`client/`): committee discovery and checks through the kit's `verifyMember`, bid sealing through the kit's `sealSlot`, share opening, and release signing with local ML-DSA-87 verification. It also wrote the committee member step and daemon (`apps/committee/`), vitest tests with real QoreSeal and ML-DSA-87, and a local end-to-end run on anvil.
+- Design choice by the worker: the local run uses real ML-DSA-87 signatures. The EVM cannot verify them, so a local-only stand-in (`OraclePqcVerify`) returns the verdict the harness got from real ML-DSA-87 verification. This keeps the forged-release refusal real instead of mocking every signature as valid.

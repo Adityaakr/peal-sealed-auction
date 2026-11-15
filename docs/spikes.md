@@ -11,6 +11,16 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Does the auction compile without `via_ir`? | No: `commitBid` and `registerSet` take several dynamic calldata arrays and hit "stack too deep". `via_ir = true` (same solc 0.8.28, cancun) | `forge build` |
 | npm records the kit's git dependency how? | As `git+ssh://git@github.com/...`; CI rewrites it to https before `npm ci` | `package-lock.json` |
 
+## 2026-11-16, local end-to-end run (anvil)
+
+| Question | Finding | How |
+|---|---|---|
+| Envelope size per member | 1,752 bytes (hybrid ML-KEM-1024 + X25519, 32-byte share), 5,256 bytes for three members, as designed | `npm run e2e:local` |
+| `commitBid` gas | 383k to 434k with three envelopes (calldata and event data dominate) | same |
+| `submitRelease` gas | 456k for 4 bids without the real `pqcVerify` | same |
+| `registerSet` gas | 1.62M for 3 members without the real `pqcVerify` | same |
+| Do QoreSign cards made from SDK-derived keys verify? | Yes: `signRecipientCard` with `classicalKeyFromPrivate(acc.privateKey, "eth_secp256k1")` and `{ secretKey: acc.pqc.secretKey }` passes the kit's `verifyMember` against `acc.pqc.publicKey` | same |
+
 ## Open questions (to settle on testnet)
 
 - Gas of `submitRelease` with one `pqcVerify` and n shares at realistic bid counts.

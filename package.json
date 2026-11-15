@@ -11,7 +11,9 @@
     "window": "tsx --env-file=.env scripts/window.ts",
     "typecheck": "tsc --noEmit",
     "abi": "forge build && tsx scripts/gen-abi.ts",
-    "test:ts": "vitest run"
+    "test:ts": "vitest run",
+    "e2e:local": "forge build && tsx scripts/e2e-local.ts",
+    "committee": "tsx apps/committee/daemon.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "0.39.0",
