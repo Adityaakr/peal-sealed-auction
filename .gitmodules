@@ -4,3 +4,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/qore-pq-kit"]
+	path = lib/qore-pq-kit
+	url = https://github.com/Adityaakr/qore-pq-kit

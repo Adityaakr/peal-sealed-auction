@@ -8,10 +8,12 @@ solc_version = "0.8.28"
 evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
-via_ir = false
+via_ir = true
 remappings = [
   "forge-std/=lib/forge-std/src/",
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "qore-pq-kit/=lib/qore-pq-kit/src/",
+  "qore-pq-kit-test/=lib/qore-pq-kit/test/",
 ]
 fs_permissions = [{ access = "read", path = "./vectors" }]
 
@@ -29,6 +31,13 @@ runs = 4096
 [profile.ci.invariant]
 runs = 512
 depth = 128
+
+[lint]
+# Auction phases are defined by timestamps on purpose; validator skew of a few
+# seconds does not matter at these durations.
+exclude_lints = ["block-timestamp"]
+# Tests cast fuzz inputs and use plain transfers on known mock tokens on purpose.
+ignore = ["test/**/*.sol"]
 
 # Public QoreChain EVM endpoints. Use them by name:
 #   forge script ... --rpc-url qorechain_testnet

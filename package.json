@@ -9,17 +9,24 @@
     "build": "forge build",
     "test": "forge test",
     "window": "tsx --env-file=.env scripts/window.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "abi": "forge build && tsx scripts/gen-abi.ts",
+    "test:ts": "vitest run"
   },
   "dependencies": {
     "@cosmjs/stargate": "0.39.0",
+    "@noble/hashes": "2.4.0",
     "@qorechain/evm": "0.14.0",
-    "@qorechain/sdk": "0.14.0"
+    "@qorechain/qoreseal": "0.1.0",
+    "@qorechain/qoresign": "0.2.0",
+    "@qorechain/sdk": "0.14.0",
+    "qore-pq-kit": "github:Adityaakr/qore-pq-kit#v0.1.0",
+    "viem": "2.21.0"
   },
   "devDependencies": {
     "@types/node": "22.7.5",
     "tsx": "4.19.0",
     "typescript": "5.6.3",
-    "viem": "2.21.0"
+    "vitest": "3.2.4"
   }
 }

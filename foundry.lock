@@ -10,5 +10,11 @@
       "name": "v5.4.0",
       "rev": "c64a1edb67b6e3f4a15cca8909c9482ad33a02b0"
     }
+  },
+  "lib/qore-pq-kit": {
+    "tag": {
+      "name": "v0.1.0",
+      "rev": "fd293a01ab36972c1f02091f06ace56b570d7dd2"
+    }
   }
 }

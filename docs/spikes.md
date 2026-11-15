@@ -7,7 +7,9 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Question | Finding | How |
 |---|---|---|
 | Does the `create-qorechain-dapp` Foundry template build here? | Yes. `create-qorechain-dapp@0.14.0 --template foundry` scaffolds a Foundry project with `solc 0.8.28` and a window helper (`scripts/window.ts`); the template ships no `.gitignore` and writes a placeholder `.env`, which is not committed | `npx -y create-qorechain-dapp@0.14.0 scaf --template foundry --yes --package-manager npm` |
-| Is `qore-pq-kit` tagged yet? | Not yet: `main` holds only its initial commit. This repository writes against the interfaces in the design until the first tag | `git ls-remote https://github.com/Adityaakr/qore-pq-kit` |
+| Is `qore-pq-kit` tagged yet? | First `v0.1.0-threshold.1` (threshold module only), then `v0.1.0` with `PqAuth`, the precompile mocks and `PqTestBase`. This repository pins `v0.1.0` | `git ls-remote --tags https://github.com/Adityaakr/qore-pq-kit` |
+| Does the auction compile without `via_ir`? | No: `commitBid` and `registerSet` take several dynamic calldata arrays and hit "stack too deep". `via_ir = true` (same solc 0.8.28, cancun) | `forge build` |
+| npm records the kit's git dependency how? | As `git+ssh://git@github.com/...`; CI rewrites it to https before `npm ci` | `package-lock.json` |
 
 ## Open questions (to settle on testnet)
 
