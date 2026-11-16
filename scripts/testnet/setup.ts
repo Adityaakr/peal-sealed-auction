@@ -4,7 +4,8 @@
  * charges a fee even for a refused duplicate registration).
  *
  * 1. deployer registers its ML-DSA-87 key (the one message signed classically);
- * 2. deployer funds the others with QOR, and the bidders with fUSD bank coins;
+ * 2. deployer tops up the others with QOR (and the bidders with fUSD bank
+ *    coins) when they fall below a floor;
  * 3. every account registers its ML-DSA-87 key with a proof of possession;
  * 4. every committee member registers its ML-KEM-1024 key (MsgRegisterKEMKey,
  *    hybrid-signed; QoreX cannot send it, so this script does);
@@ -21,13 +22,18 @@ import {
   verifyProofOfPossession,
 } from "@qorechain/sdk";
 import type { EncodeObject } from "@cosmjs/proto-signing";
-import { balances, broadcast, convertCoinMsg, festRegistry, FUSD_DENOM, network, qor } from "qore-pq-kit";
+import { balances, broadcast, convertCoinMsg, festRegistry, FUSD, FUSD_DENOM, network, publicClient, qor } from "qore-pq-kit";
+import { erc20Abi } from "viem";
 import { ACCOUNTS, BIDDERS, COMMITTEE, load, type Named } from "./lib.ts";
 
-const QOR_EACH = { committee: 3_000_000n, bidder: 3_000_000n }; // uqor
-const FUSD_EACH = 250_000_000n; // 250 fUSD (6 decimals)
+// Thin: one faucet claim funds every entry of the fest. Accounts are topped up
+// to TARGET when they fall below FLOOR, so repeated demo runs keep working.
+const TARGET = { committee: 2_000_000n, bidder: 1_500_000n }; // uqor
+const FLOOR = { committee: 800_000n, bidder: 600_000n }; // uqor
+const FUSD_TARGET = 200_000_000n; // 200 fUSD (6 decimals), ERC-20 plus bank
+const FUSD_FLOOR = 120_000_000n;
 
-async function registerPqc(n: Named): Promise<void> {
+export async function registerPqcFor(n: Named): Promise<void> {
   const net = network();
   const st = await fetchPqcStatus({ rest: net.rest, address: n.acc.cosmos });
   if (st.registered) {
@@ -55,10 +61,11 @@ async function registerKem(n: Named): Promise<void> {
   console.log(`${n.name}: registered ML-KEM-1024 key, tx ${res.transactionHash}`);
 }
 
+/** Cosmos refuses a MsgSend whose coins are not sorted by denom ("invalid coins"). */
 function send(from: Named, to: Named, coins: { denom: string; amount: bigint }[]): EncodeObject {
   return {
     typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-    value: { fromAddress: from.acc.cosmos, toAddress: to.acc.cosmos, amount: coins.map((c) => ({ denom: c.denom, amount: c.amount.toString() })) },
+    value: { fromAddress: from.acc.cosmos, toAddress: to.acc.cosmos, amount: [...coins].sort((a, b) => (a.denom < b.denom ? -1 : 1)).map((c) => ({ denom: c.denom, amount: c.amount.toString() })) },
   };
 }
 
@@ -70,24 +77,30 @@ export async function setup(): Promise<void> {
   const bal = await balances(deployer.acc.cosmos);
   console.log(`deployer ${deployer.acc.cosmos}: ${qor(bal.uqor ?? 0n)}, fUSD bank ${bal[FUSD_DENOM] ?? 0n}`);
   if ((bal.uqor ?? 0n) === 0n) throw new Error(`fund the deployer ${deployer.evm} (${deployer.acc.cosmos}) from the faucet first`);
-  await registerPqc(deployer);
+  await registerPqcFor(deployer);
 
-  // Fund whoever is still empty, in one hybrid transaction.
+  // Top up whoever is below its floor, in one hybrid transaction.
   const msgs: EncodeObject[] = [];
   for (const name of [...COMMITTEE, ...BIDDERS]) {
     const n = all.get(name)!;
     const b = await balances(n.acc.cosmos);
-    if ((b.uqor ?? 0n) > 0n) continue;
-    const coins = [{ denom: "uqor", amount: COMMITTEE.includes(name) ? QOR_EACH.committee : QOR_EACH.bidder }];
-    if (BIDDERS.includes(name) && (bal[FUSD_DENOM] ?? 0n) >= FUSD_EACH) coins.push({ denom: FUSD_DENOM, amount: FUSD_EACH });
-    msgs.push(send(deployer, n, coins));
+    const role = COMMITTEE.includes(name) ? "committee" : "bidder";
+    const coins: { denom: string; amount: bigint }[] = [];
+    const q = b.uqor ?? 0n;
+    if (q < FLOOR[role]) coins.push({ denom: "uqor", amount: TARGET[role] - q });
+    if (role === "bidder") {
+      const erc = await publicClient().readContract({ address: FUSD, abi: erc20Abi, functionName: "balanceOf", args: [n.evm] });
+      const have = erc + (b[FUSD_DENOM] ?? 0n);
+      if (have < FUSD_FLOOR && (bal[FUSD_DENOM] ?? 0n) >= FUSD_TARGET - have) coins.push({ denom: FUSD_DENOM, amount: FUSD_TARGET - have });
+    }
+    if (coins.length) msgs.push(send(deployer, n, coins));
   }
   if (msgs.length) {
     const res = await broadcast(deployer.acc, msgs);
     console.log(`deployer funded ${msgs.length} accounts, tx ${res.transactionHash}`);
   }
 
-  for (const name of [...COMMITTEE, ...BIDDERS]) await registerPqc(all.get(name)!);
+  for (const name of [...COMMITTEE, ...BIDDERS]) await registerPqcFor(all.get(name)!);
   for (const name of COMMITTEE) await registerKem(all.get(name)!);
   for (const name of BIDDERS) {
     const n = all.get(name)!;

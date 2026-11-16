@@ -15,6 +15,7 @@ import { openShare } from "qore-pq-kit/threshold";
 import { hexToBytes, toBytes, toHex, type Address, type Hex, type PublicClient } from "viem";
 import { sealedAuctionAbi } from "./abi.ts";
 import { SEAL_CHAIN_ID, SHARE_PURPOSE } from "./constants.ts";
+import { collectLogs } from "./logs.ts";
 
 export interface CommittedBid {
   bidId: bigint;
@@ -28,14 +29,15 @@ export interface CommittedBid {
 }
 
 /** Every committed bid, in bid id order (the order a release covers). */
-export async function readBids(client: PublicClient, auction: Address, fromBlock: bigint = 0n): Promise<CommittedBid[]> {
-  const logs = await client.getContractEvents({
-    address: auction,
-    abi: sealedAuctionAbi,
-    eventName: "BidCommitted",
-    fromBlock,
-    strict: true,
-  });
+export async function readBids(client: PublicClient, auction: Address, fromBlock?: bigint): Promise<CommittedBid[]> {
+  const count = Number(await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "bidCount" }));
+  const logs = await collectLogs(
+    client,
+    (from, to) =>
+      client.getContractEvents({ address: auction, abi: sealedAuctionAbi, eventName: "BidCommitted", fromBlock: from, toBlock: to, strict: true }),
+    count,
+    { fromBlock },
+  );
   const bids = logs.map((l) => ({
     bidId: l.args.bidId,
     bidder: l.args.bidder,

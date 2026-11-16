@@ -1,0 +1,56 @@
+{
+  "network": "qorechain-diana",
+  "startedAt": "2026-11-16T08:05:28.650Z",
+  "txs": {
+    "approveSupply": "0x9cae88be02ca4f66765dcff1c4beabab0dbb8523f447893025a84226089b7f08",
+    "createAuction": "0x4a82f343731d4d4cb831f13056a02b2d2c3f5876253211954eb8e938f49c012d",
+    "bidder1.approve": "0x1fb41a4f7670f59467d5cdf5900c77d569aa8155d1847f6c2ba267b77806f1f7",
+    "bidder1.commitBid": "0x5f6bde8fc367cec8d9b374c55f783ebefbfff03b6bfea0118aca3e2d8f4c4584",
+    "bidder2.approve": "0x7c0e523db503784f4692dbe444d848416639a3f28180a49478b840f87f0f6f71",
+    "bidder2.commitBid": "0x669cf22f523984d04a266686a7f4686bc546aabc384e40082b7caa38fbba4f1b",
+    "closeCommit": "0xfd967fc0a48ed1305bcfad46d14c904654e22bd3fd8ceda9b45c63ac964a5740",
+    "committee1.submitRelease": "0xc999a0c26b698e64836486c637f3e126e11317d1ca06cf4e6b00c63d8293ee68",
+    "committee2.submitRelease": "0xcc039c7dd19f1d0626dea38d42834140d228c686d22ce1ff693950d9e0113007",
+    "openBids": "0xdad46c9202d8287b98b697847c5aca1a82a4b1e624f603dfebfff7cca8db365c",
+    "finalize": "0x85a2df47dbf5a5cf5d4473db222170432c568990bdda03b1f4847e4e9045e44d",
+    "claim0": "0x89a4d62600fbb6c12d52ba6902754d7760df86facf74aa0fb7845c7491422223",
+    "claim1": "0x63b349bdd5f2ebca45fd014df9ac832427f46636832fb0e498e29be9ab1207e0",
+    "claimProceeds": "0x579df2d27552ec13a14d8551ca0e419e8fe70713c862222d4af36c5d9ce8b8e2",
+    "claimUnsold": "0x537e114ece3910163861c5a68155f5c86d56b27e298b4875c84c9587001a53a8"
+  },
+  "auction": "0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124",
+  "forgedRelease": "refused: ReleaseSignatureInvalid (eth_call against the live pqcVerify)",
+  "clearingPrice": "1500000",
+  "bids": [
+    {
+      "bidder": "0x0867D194B3360Ee054249396F5158Fb2F19Fd285",
+      "status": 1,
+      "quantity": "60000000000000000000",
+      "tick": 3
+    },
+    {
+      "bidder": "0x6905DBf9b46a74C3c0850962911bDCCd3d856eB2",
+      "status": 1,
+      "quantity": "70000000000000000000",
+      "tick": 1
+    }
+  ],
+  "gasUsed": {
+    "approveSupply": "45969",
+    "createAuction": "683712",
+    "bidder1.approve": "46330",
+    "bidder1.commitBid": "439397",
+    "bidder2.approve": "46342",
+    "bidder2.commitBid": "405257",
+    "closeCommit": "34618",
+    "committee1.submitRelease": "285063",
+    "committee2.submitRelease": "285195",
+    "openBids": "286277",
+    "finalize": "235710",
+    "claim0": "111198",
+    "claim1": "106636",
+    "claimProceeds": "89128",
+    "claimUnsold": "39842"
+  },
+  "finishedAt": "2026-11-16T08:17:53.189Z"
+}

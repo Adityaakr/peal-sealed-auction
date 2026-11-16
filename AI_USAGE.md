@@ -43,4 +43,11 @@ Recorded from the approved combined design (2026-11-15/16):
 - Human: merged the third pull request.
 - Worker wrote the web pages (bidder, committee member, results), the read-only REST proxy, and a long-running local stack. It also wrote `web:smoke`, which drives the pages through a whole auction in headless Chromium. The bids are sealed, and the shares opened and releases signed, inside the browser.
 - What went wrong: the orchestrator's browser tool (`chrome-devtools-axi`) could not attach to a browser in this session. The worker used Playwright's headless Chromium instead, first from a scratch script, then as `scripts/web-smoke.ts` in CI.
+- Human: merged the fourth pull request. Made one faucet claim to the deployer and decided how it is shared across all entries. The worker sent the requested transfers to the other entries' accounts (one transaction, hash recorded) before using any funds itself.
+- Worker ran the testnet setup (ML-DSA-87 keys for six accounts, ML-KEM-1024 keys for the committee, fUSD conversion), deployed the contracts, registered the 2-of-3 committee with on-chain `pqcVerify`, and ran a whole sealed auction on the testnet in scoped windows.
+- What went wrong and was fixed:
+  - a bank send with unsorted coins was refused and charged a 0.3 QOR fee;
+  - the first demo attempt hit the RPC's 10,000-block `eth_getLogs` limit, so the client now reads logs in chunks.
+
+  Both are recorded in `docs/spikes.md`.
 

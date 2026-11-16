@@ -1,0 +1,11 @@
+{
+  "network": "testnet",
+  "chainId": 9800,
+  "evmRpc": "https://evm-testnet.qore.host",
+  "rest": "/rest",
+  "registry": "0x95ea32ba3077070a562a9f7ad2e969f231689bae",
+  "factory": "0x1160ab95b570a65bbadb488c76e2f8515f3d6562",
+  "fusd": "0x97143B771D34ddb9130b807b135Ae675A5a963CA",
+  "pealt": "0x7edc65adc95de061887ecd6fc8629f2a99fffe9e",
+  "committeeSetId": "0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5"
+}

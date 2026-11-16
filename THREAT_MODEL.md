@@ -32,6 +32,12 @@ Peal Sealed Auction: what is protected, against whom, and what is not. This file
 
 **Clearing.** At most 256 ticks are scanned, so settlement cost does not grow with the number of bids. Escrow rounds up and payment rounds down, so one bidder's shortfall can never be taken from another's deposit. Allocation is independent of claim order. These hold in the code today and are fuzzed (`test/ClearingPrice.t.sol`, `test/AuctionMath.t.sol`).
 
+**Operational scope on the testnet.** QoreChain admits an EVM transaction only inside a window opened by a hybrid-signed (secp256k1 + ML-DSA-87) native message. The scripts open every window *scoped*:
+- a bidder's window lists only fUSD and the auction, and admits exactly 2 transactions (approve, commit);
+- a member's window lists only the auction, and admits exactly 1 (its release).
+
+A stolen classical key alone therefore cannot open a window at all, and a spent window admits nothing more. Only contract deployment uses an unscoped window, because scoped windows refuse contract creation. That window is closed right after.
+
 ## Design rules (from Peal's plan 017 review, credited)
 
 1. Exclude, never fail: an unopenable bid is excluded and refunded; it never fails the auction.

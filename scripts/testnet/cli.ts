@@ -5,6 +5,8 @@
  *   npm run testnet -- setup                   fund, register ML-DSA and ML-KEM keys
  *   npm run testnet -- deploy                  deploy, register the committee, write configs
  *   npm run testnet -- demo                    one whole sealed auction with the real precompiles
+ *   npm run testnet -- window <name> <auction> open the scoped window an account needs for the web pages
+ *   npm run testnet -- close <auction>         close an auction nobody bid on and return its supply
  */
 export {};
 
@@ -18,9 +20,13 @@ if (group === "accounts") {
   await (await import("./setup.ts")).setup();
 } else if (group === "deploy") {
   await (await import("./deploy.ts")).deploy();
+} else if (group === "window") {
+  await (await import("./demo.ts")).windowFor(cmd!, process.argv[4] as `0x${string}`);
+} else if (group === "close") {
+  await (await import("./demo.ts")).closeEmpty(cmd as `0x${string}`);
 } else if (group === "demo") {
   await (await import("./demo.ts")).demo(process.argv.slice(3));
 } else {
-  console.error("usage: npm run testnet -- accounts create|status | setup | deploy | demo");
+  console.error("usage: npm run testnet -- accounts create|status | setup | deploy | demo | window <name> <auction> | close <auction>");
   process.exit(2);
 }

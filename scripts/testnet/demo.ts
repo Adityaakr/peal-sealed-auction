@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { closeEvmWindowMsg, deriveUnifiedAccount, fetchEvmWindow, generateMnemonic, openEvmWindowMsg, pqcSign } from "@qorechain/sdk";
 import { evmWindowCost } from "@qorechain/evm";
-import { broadcast, network, publicClient, sendEvm } from "qore-pq-kit";
+import { broadcast, FUSD, network, publicClient, sendEvm } from "qore-pq-kit";
 import { encodeFunctionData, erc20Abi, hexToBytes, parseUnits, toHex, type Abi, type Address, type Hex } from "viem";
 import { memberStep } from "../../apps/committee/member.ts";
 import { bidContext, readCommittee, resolveCommittee, sealBid, sealedAuctionAbi, sealedAuctionFactoryAbi } from "../../client/index.ts";
@@ -114,7 +114,7 @@ export async function demo(argv: string[]): Promise<void> {
     await evm(b, `${b.name}.approve`, d.fusd, erc20Abi as Abi, "approve", [auction, ctx.escrow + ctx.bond]);
     const c = sealBid({ chainId: 9800n, auction, bidder: b.evm, seq: ctx.seq, quantity: qty, tick, recipients, threshold: committee.threshold });
     await evm(b, `${b.name}.commitBid`, auction, sealedAuctionAbi as Abi, "commitBid", [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, ctx.escrow]);
-    await closeWindow(b);
+    // The window admitted exactly these 2 transactions and is now spent; closing it would only cost a fee.
   }
 
   // 3. Close on chain.
@@ -160,8 +160,7 @@ export async function demo(argv: string[]): Promise<void> {
       log: (l) => console.log(l),
     });
     if (r.kind !== "released") throw new Error(`${m.name}: ${JSON.stringify(r)}`);
-    txs[`${m.name}.submitRelease`] = r.tx;
-    await closeWindow(m);
+    txs[`${m.name}.submitRelease`] = r.tx; // its 1-transaction window is now spent
   }
 
   // 6. After the release deadline: open, finalize, pay out (deployer as keeper).
@@ -183,4 +182,34 @@ export async function demo(argv: string[]): Promise<void> {
   const out = join(ROOT, "deployments", `demo-${auction}.json`);
   writeFileSync(out, `${JSON.stringify(record, null, 2)}\n`);
   console.log(`settled at ${price} (fUSD base units per PEAL-T); wrote ${out}`);
+}
+
+/** Close an auction nobody bid on and return its supply to the issuer (deployer). */
+export async function closeEmpty(auction: Address): Promise<void> {
+  const client = publicClient();
+  const deployer = await load("deployer");
+  await scopedWindow(deployer, [auction], 2, 300_000n);
+  try {
+    const state = Number(await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "state" }));
+    if (state === 2) {
+      const r = await sendEvm(deployer.acc, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "closeCommit" }) });
+      console.log(`closeCommit: tx ${r.transactionHash}`);
+    }
+    const r = await sendEvm(deployer.acc, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "claimUnsold" }) });
+    console.log(`claimUnsold: tx ${r.transactionHash}`);
+  } finally {
+    await closeWindow(deployer);
+  }
+}
+
+/**
+ * Open the scoped window an account needs before using the web pages on an
+ * auction: bidders may call fUSD and the auction (approve + commit), members
+ * the auction (one release), the deployer the auction (close, open, finalize, claims).
+ */
+export async function windowFor(name: string, auction: Address): Promise<void> {
+  const n = await load(name);
+  if (BIDDERS.includes(name as never)) await scopedWindow(n, [FUSD, auction], 2, 1_000_000n);
+  else if (COMMITTEE.includes(name as never)) await scopedWindow(n, [auction], 1, 3_000_000n);
+  else await scopedWindow(n, [auction], 10, 3_000_000n, 3600);
 }
