@@ -45,6 +45,12 @@ export async function readCommittee(
   registry: Address,
   setId: Hex,
   fromBlock?: bigint,
+  /**
+   * Cards to fall back on when the node no longer has the MemberJoined events
+   * (it prunes old blocks), e.g. deployments/committee-cards.json. Untrusted:
+   * `resolveCommittee` checks every card against the member-signed hash.
+   */
+  fallback?: Committee,
 ): Promise<Committee> {
   const [threshold, members] = await client.readContract({
     address: registry,
@@ -52,7 +58,7 @@ export async function readCommittee(
     functionName: "getSet",
     args: [setId],
   });
-  const logs = await collectLogs(
+  const logs = await collectLogs<{ args: { index: number; card: Hex } }>(
     client,
     (from, to) =>
       client.getContractEvents({
@@ -66,9 +72,12 @@ export async function readCommittee(
       }),
     members.length,
     { fromBlock },
-  );
+  ).catch(() => []);
   const cards = new Map<number, Hex>();
   for (const l of logs) cards.set(Number(l.args.index), l.args.card);
+  for (const m of fallback?.setId === setId ? fallback.members : []) {
+    if (!cards.has(m.index)) cards.set(m.index, cardToBytes(m.card));
+  }
   return {
     setId,
     threshold: Number(threshold),

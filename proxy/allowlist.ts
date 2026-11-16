@@ -8,6 +8,8 @@ export const ALLOWED_GET = [
   /^\/qorechain\/pqc\/v1\/kem\/[a-z0-9]+$/,
   /^\/qorechain\/pqc\/v1\/account\/[a-z0-9]+$/,
   /^\/qorechain\/pqc\/v1\/params$/,
+  // Transaction search: smart-account bids (MsgExecuteEVM) carry their envelopes only in calldata.
+  /^\/cosmos\/tx\/v1beta1\/txs$/,
 ];
 
 export function allowed(method: string, path: string): boolean {

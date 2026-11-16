@@ -54,7 +54,8 @@ comm.append(
 app.append(comm);
 commBtn.onclick = () =>
   guard(commBtn, async () => {
-    const c = await readCommittee(client, cfg.registry, s.cfg.committeeSetId);
+    const fallback = cfg.committeeCards ? await fetch(cfg.committeeCards).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined) : undefined;
+    const c = await readCommittee(client, cfg.registry, s.cfg.committeeSetId, undefined, fallback);
     recipients = await resolveCommittee(c, { client, rest: cfg.rest });
     commOut.replaceChildren(
       ...c.members.map((m) => el("div", { class: "ok mono" }, `✓ member ${m.index} ${m.address} · ML-KEM sha3 ${short(m.kemKeySha3, 6)}`)),

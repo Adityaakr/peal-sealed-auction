@@ -25,7 +25,7 @@ import { evmWindowCost } from "@qorechain/evm";
 import { broadcast, FUSD, network, publicClient, sendEvm } from "qore-pq-kit";
 import { cardHash, kemKeySha3, qorAddress, readPqKey } from "qore-pq-kit/threshold";
 import { encodeDeployData, encodeFunctionData, hexToBytes, parseUnits, toHex, type Abi, type Address, type Hex } from "viem";
-import { cardToBytes, committeeRegistryAbi, SEAL_CHAIN_ID } from "../../client/index.ts";
+import { cardFromBytes, cardToBytes, committeeRegistryAbi, SEAL_CHAIN_ID } from "../../client/index.ts";
 import { artifact } from "../local/stack.ts";
 import { COMMITTEE, load, type Named } from "./lib.ts";
 
@@ -170,6 +170,14 @@ export async function deploy(): Promise<void> {
       d.committeeSetId = setId;
       d.committee = members.map((m, i) => ({ index: i + 1, account: m.evm, qor: qorAddress(m.evm), kemKeySha3: joins[i]!.kemKeySha3, cardHash: joins[i]!.cardHash }));
       save(d);
+      // The node prunes old blocks; keep the cards (MemberJoined data) where bidders can still get them.
+      const cards = {
+        setId,
+        threshold: 2,
+        members: members.map((m, i) => ({ index: i + 1, address: m.evm, kemKeySha3: joins[i]!.kemKeySha3, cardHash: joins[i]!.cardHash, card: cardFromBytes(joins[i]!.card) })),
+      };
+      writeFileSync(join(ROOT, "deployments", "committee-cards.json"), `${JSON.stringify(cards, null, 2)}\n`);
+      writeFileSync(join(ROOT, "apps", "web", "public", "committee-cards.testnet.json"), `${JSON.stringify(cards, null, 2)}\n`);
       console.log(`committee 2-of-3 registered: ${setId}`);
     }
   } finally {
@@ -190,6 +198,7 @@ export async function deploy(): Promise<void> {
         fusd: d.fusd,
         pealt: d.pealt,
         committeeSetId: d.committeeSetId,
+        committeeCards: "./committee-cards.testnet.json",
       },
       null,
       2,

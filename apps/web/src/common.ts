@@ -35,6 +35,8 @@ export interface AppConfig {
   fusd: Address;
   pealt: Address;
   committeeSetId?: Hex;
+  /** Committee cards to fall back on if the node pruned the MemberJoined events. */
+  committeeCards?: string;
   auction?: Address;
   /** Local stack only: where the harness records ML-DSA-87 verdicts for the precompile stand-in. */
   attestUrl?: string;

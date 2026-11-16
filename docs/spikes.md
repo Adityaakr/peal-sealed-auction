@@ -60,6 +60,16 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Do the pages work on the testnet? | Yes. The bid page's committee check passes against the live chain and REST (through the dev server's `/rest` proxy). Member 1 opens its real shares of the demo auction in the browser. The results page shows the settled demo (1.5 fUSD per PEAL-T, 60 and 40 allocated). No page errors | headless Chromium against `?net=testnet`, no transactions sent |
 | Page speed over the public RPC | Reading bids one by one was slow enough to show an empty table for seconds. The results and home pages now read in parallel | same |
 
+## 2026-11-16, smart-account bids (joint demo with Peal Bidder)
+
+| Question | Finding | How |
+|---|---|---|
+| Are EVM logs of `MsgExecuteEVM` (a smart-account call relayed on the native lane) visible to `eth_getLogs`? | **No.** Auction `0x481F…E990` received 2 bids through `MsgExecuteEVM`: `bidCount` is 2, yet `eth_getLogs` shows only the creation and close events. The native tx events carry no EVM logs either | `cast logs`; REST `/cosmos/tx/v1beta1/txs/{hash}` |
+| Then where are the envelopes? | Only in the calldata: the `MsgExecuteEVM` body carries `to` and `data` (base64). `readBids` now takes bidder, seq, ct, keyHash and the share hashes from contract storage, and recovers the envelopes from that calldata via the REST tx search (`message.action='/qorechain.abstractaccount.v1.MsgExecuteEVM'`). Envelopes are transport only: each opened share is checked against its on-chain hash | dry run: members 1 and 2 opened both shares |
+| How much history does the public node keep? | About 1.4M blocks (lowest height 8,790,799 at 10:07 UTC, head about 10.19M); older ranges fail with "height N is not available, lowest height is M". The log scan now clamps to that height, and is bounded by the auction's age | the failed settle run |
+| Can the committee's cards outlive the node's history? | The cards exist only in `MemberJoined` events. They are saved in `deployments/committee-cards.json` (and served to the pages) as an untrusted fallback, checked against the member-signed card hash | `readCommittee(..., fallback)` |
+| Block rate | About 0.7 blocks per second (5,483 blocks between 08:00 and 10:10 UTC) | block numbers of known txs |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).
