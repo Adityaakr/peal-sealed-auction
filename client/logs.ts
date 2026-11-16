@@ -17,7 +17,9 @@ export async function collectLogs<T>(
   want: number,
   opts: { fromBlock?: bigint; maxChunks?: number } = {},
 ): Promise<T[]> {
-  const latest = await client.getBlockNumber();
+  // No cache: viem otherwise reuses the block number for its polling interval,
+  // and a read right after a transaction would stop before that transaction's block.
+  const latest = await client.getBlockNumber({ cacheTime: 0 });
   const out: T[] = [];
   const maxChunks = opts.maxChunks ?? 2_000;
   if (opts.fromBlock !== undefined) {
