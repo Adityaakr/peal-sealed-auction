@@ -104,3 +104,9 @@ The worker also ran the testnet deployment and the demo auction.
   - The worker loaded the design, diagramming and data-visualisation guidance and wrote the concept first (visitor, five-second idea, metaphor; `apps/web/DESIGN.md`). It rebuilt the landing page around it: a vault of the demo auction's real sealed slots, six diagrams that each answer one question, the testnet run's two ciphertexts opening into the clearing price as the climax, and a requirements table with transaction evidence.
   - It reviewed screenshots at 1440, 1280, 768 and 390 pixels and revised several times before the pull request. It fixed colliding labels, a clipped headline, a heavy chart, desktop drawings shrunk on phones, and a backdrop blur that counted as glassmorphism.
   - One correction came from its own review: the first timeline drawing said two members can read a bid only after the close. That holds for releases, which the contract refuses before the close, but two colluding members could combine shares off chain at any time. The drawing now states the trust assumption, as the threat model does.
+
+### 2026-11-17
+
+- **New logos.** The owner asked for professional logos for all three products. They were designed and merged in Peal Tender (`docs/brand/`, PR 12). The orchestrator dispatched a worker to adopt them here.
+  - The worker copied the masters unaltered into `apps/web/public/brand/` (from Peal Tender commit `97011c2`). It replaced the drawn ring marks with the files: the light version on the app pages, the dark version on the landing page, the parent Peal mark beside the family label in the footer. It also replaced the favicon set with the auction tile (SVG, 32 px PNG, 180 px touch icon).
+  - It checked the header, the family switcher, the footer and the favicons in headless Chrome at 1440 and 390 pixels and at 16 and 32 pixels. The orchestrator's browser tool again could not launch Chrome, so it drove Chrome for Testing through Playwright.

@@ -60,7 +60,7 @@ function nav(): HTMLElement {
       h(
         `a.sa-fam${p.id === "auction" ? ".is-current" : ""}`,
         p.id === "auction" ? { href: "#top", "aria-current": "page", title: p.name } : { href: p.href, title: p.name, ...ext },
-        mark(p.id, "sa-fam-mark"),
+        mark(p.id, "sa-fam-mark", "dark"),
         h("span.sr-only", p.name),
       ),
     ),
@@ -70,7 +70,7 @@ function nav(): HTMLElement {
     { "aria-label": "Main" },
     h(
       "div.sa-wrap.sa-nav-in",
-      h("a.sa-word", { href: "#top" }, mark("auction", "sa-mark"), h("span", "Peal Sealed Auction")),
+      h("a.sa-word", { href: "#top" }, mark("auction", "sa-mark", "dark"), h("span", "Peal Sealed Auction")),
       family,
       h(
         "div.sa-links",
@@ -680,12 +680,12 @@ function footer(): HTMLElement {
       "div.sa-wrap",
       h(
         "div.sa-family-list",
-        h("div.sa-label", "The Peal family"),
+        h("div.sa-label.sa-family-label", mark("peal", "sa-peal-mark", "dark"), "The Peal family"),
         ...FAMILY.map((p) =>
           h(
             `a.sa-family-row${p.id === "auction" ? ".is-current" : ""}`,
             p.id === "auction" ? { href: "#top" } : { href: p.href, ...ext },
-            mark(p.id, "sa-mark"),
+            mark(p.id, "sa-mark", "dark"),
             h("strong", p.name, h("span.sa-role", `: ${p.role}`)),
             h("span", p.line),
             p.id === "auction" ? h("em", "you are here") : icon("out"),
@@ -694,7 +694,7 @@ function footer(): HTMLElement {
       ),
       h(
         "div.sa-foot-grid",
-        h("div", h("a.sa-word", { href: "#top" }, mark("auction", "sa-mark"), "Peal Sealed Auction"), h("p", "A uniform-price sealed-bid auction on QoreChain whose bids no single key holder can open before the close.")),
+        h("div", h("a.sa-word", { href: "#top" }, mark("auction", "sa-mark", "dark"), "Peal Sealed Auction"), h("p", "A uniform-price sealed-bid auction on QoreChain whose bids no single key holder can open before the close.")),
         col("Product", ["Auctions", appHref("auctions")], ["Place a bid", appHref("bidder", cfg?.demoAuction)], ["Results", appHref("results", cfg?.demoAuction)], ["Committee", appHref("committee")], ["Open an auction", appHref("issuer")]),
         col("Developers", ["GitHub", REPO, true], ["Threat model", `${BLOB}/THREAT_MODEL.md`, true], ["Testnet findings", `${BLOB}/docs/spikes.md`, true], ["qore-pq-kit", "https://github.com/Adityaakr/qore-pq-kit", true]),
         col("Network", ["QoreChain", "https://qorechain.io", true], ["Testnet faucet", FAUCET_URL, true], ["How AI built this", `${BLOB}/AI_USAGE.md`, true]),

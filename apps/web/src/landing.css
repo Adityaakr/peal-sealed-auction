@@ -231,26 +231,6 @@ body.landing::before {
   flex: none;
 }
 
-/* The family marks are drawn in the Peal accent; here they take brass. */
-.sa-mark circle,
-.sa-fam-mark circle,
-.sa-mark path,
-.sa-fam-mark path {
-  stroke: var(--brass);
-}
-
-.sa-mark rect,
-.sa-fam-mark rect,
-.sa-mark circle[fill="#2563eb"],
-.sa-fam-mark circle[fill="#2563eb"] {
-  fill: var(--brass);
-}
-
-.sa-mark circle[fill="#fff"],
-.sa-fam-mark circle[fill="#fff"] {
-  fill: var(--night);
-}
-
 .sa-family {
   display: inline-flex;
   gap: 2px;
@@ -960,6 +940,18 @@ body.landing::before {
 
 .sa-family-list > .sa-label {
   margin-bottom: 12px;
+}
+
+.sa-family-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sa-peal-mark {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 .sa-family-row {
