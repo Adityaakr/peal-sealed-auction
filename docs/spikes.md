@@ -111,6 +111,19 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Can one transaction swap and convert? | Yes: `MsgSwapExactIn` (floor = the amount wanted) then `MsgConvertCoin` of exactly that amount, hybrid-signed together. The ERC-20 balance grew by exactly the amount; any excess stays as the bank coin | bidder1 `3E4AEEBD…6AED` (+0.2 fUSD); the browser guest from the bid page `6EBF2D96…3E72` (+0.1 fUSD, 1.48 QOR at most) |
 | What does the page need from REST? | `/qorechain/amm/v1/pools`, now in `proxy/allowlist.ts` and `vercel.json` | `npm run web:preview` |
 
+## 2026-11-17, MetaMask as a linked key
+
+| Question | Finding | How |
+|---|---|---|
+| Can a MetaMask key bid in this auction on QoreChain? | Yes, as an authenticator on a post-quantum account. The owner sends `MsgUpdateSpendingRules` and `MsgRegisterAuthenticator` in one hybrid transaction, the second with MetaMask's EIP-191 possession proof. MetaMask then signs each call's EVM-auth digest, and the owner relays them as `MsgExecuteEVM`. The calls run as the owner's 0x address, with no EVM window | bidder1: link `F18C068B…2DA2`, approve + commitBid `8B0B3A1D…46E3` (bid 1 of the open demo) |
+| Are the rule's ERC-20 limits enforced? | Yes. With PEAL-T listed as `erc20/0x7eDc…FfE9e` (100 per call), an approve of 5×10¹¹ PEAL-T was refused: "per-tx limit … exceeded … spending limit exceeded". The faucet claim in the same relay executed. Each call has its own outcome in a code-0 transaction | `837DBC8D…5F1B` |
+| A call outside `allowed_evm_calls`? | Refused: "a linked key with a spending rule may call 0x9714… with data only if the rule lists the call in allowed_evm_calls (or lists the token as "erc20/0x9714…" for a token transfer or approval)" | approve fUSD to the key itself, `B04CA6CD…145C` |
+| Can the committee open such a bid? | Yes: a relayed bid's envelopes come from the `MsgExecuteEVM` calldata (`client/release.ts`). Member 1's dry run opened its share of bid 1 | `readBids` + `openMemberShares`, nothing sent |
+| What does a page need from REST? | `/qorechain/abstractaccount/v1/auth_nonce/{account}/{key}` (the key's own sequence), `/cosmos/upgrade/v1beta1/applied_plan/v3.2.3` (which digest the chain verifies), and the account's `spending_rules` and `authenticators`. All four are in `proxy/allowlist.ts` and `vercel.json` | `npm run web:preview` |
+| Gas of a relay | Approve + commitBid with three envelopes fit in a 3M-gas native transaction (0.45 QOR fee) | both relays above |
+| From the bid page? | Yes, in the production build. The guest linked an injected MetaMask stand-in (EIP-6963 `io.metamask`, `personal_sign` only): 3 prompts, the link proof and two calls. It then relayed approve + commitBid | link `C2914126…9E37`, bid `3F5BAD73…4109` |
+| Testing note | A Playwright init script must not read `localStorage` before announcing a provider (it throws in opaque-origin frames). A function compiled by tsx carries `__name` helpers the page lacks, so the stand-in is injected as text | `scripts/testnet/metamask-page-proof.ts` |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

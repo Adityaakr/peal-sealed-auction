@@ -34,6 +34,7 @@
     "@qorechain/qoresign": "0.2.0",
     "@qorechain/qorex-types": "0.1.0",
     "@qorechain/sdk": "0.14.0",
+    "@qorechain/wallet-adapter": "0.6.0",
     "cosmjs-types": "0.11.0",
     "qore-pq-kit": "github:Adityaakr/qore-pq-kit#v0.1.0",
     "viem": "2.21.0"
@@ -49,5 +50,11 @@
     "typescript": "5.6.3",
     "vite": "6.4.6",
     "vitest": "3.2.4"
+  },
+  "overrides": {
+    "@qorechain/wallet-adapter": {
+      "@cosmjs/stargate": "$@cosmjs/stargate",
+      "@cosmjs/proto-signing": "$@cosmjs/proto-signing"
+    }
   }
 }

@@ -45,7 +45,7 @@ After the close the demo committee releases (`npm run testnet -- settle 0x9A98â€
 |---|---|---|
 | Guest account (browser) | Bids, claims and runs the permissionless steps. It registers its ML-DSA-87 key, opens a window scoped to the exact contracts and transaction count, sends, and closes the window if anything is left of it | Hold real funds: testnet only, and the page says so |
 | QoreX | Identifies the visitor and funds the guest with one `MsgSend` approved in QoreX, through the official `@qorechain/qorex-types`. QoreX's own check that the committed transfer carries the ML-DSA-87 layer is shown, and a `downgraded` one is refused. The path ran on the testnet through the official QoreX mock (`npm run testnet -- qorex-proof`, `deployments/qorex-proof.json`) | Send EVM transactions for pages ("not yet supported" in its docs) |
-| MetaMask | Connects and adds the QoreChain testnet network | Sign for QoreChain: EVM transactions need an ML-DSA-87 key and a window, which MetaMask cannot make |
+| MetaMask | Connects, adds the QoreChain testnet network, and **bids through the guest account** (`@qorechain/wallet-adapter`). The guest links MetaMask once as an authenticator under an on-chain spending rule: this auction, its token and the demo faucet only, capped per call and per day, for 24 hours. MetaMask signs each call and the guest relays it as `MsgExecuteEVM`, with no window (`client/linked-key.ts`; `deployments/metamask-proof.json`) | Sign for QoreChain by itself: an EVM transaction needs an ML-DSA-87 key and a window, which MetaMask cannot make |
 
 Committee members and issuers keep using their own accounts and the CLI; the demo committee never types its keys into the hosted page.
 
@@ -243,12 +243,13 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `scripts/evidence.ts`, `deployments/evidence.json` | Every recorded transaction and account re-checked through the `qore` CLI |
 | `docs/qorescan/` | The crypto inventory (CycloneDX CBOM) and a draft agility statement, from QoreScan |
 | `.mcp.json` | The QoreChain MCP server (read-only) for coding agents working in this repository |
+| `client/linked-key.ts` | MetaMask as a linked key on a post-quantum account: the spending rule, the link, MetaMask-signed calls |
 | `client/amm.ts` | Buying the quote token on the native AMM: pool quote, swap with a floor, convert to the ERC-20, one transaction |
 | `client/audit.ts` | The independent check: release signatures verified with `@qorechain/pqc`, bids reopened from stored shares |
 | `docs/DEMO.md` | The 3-minute demo, shot by shot |
 | `THREAT_MODEL.md`, `AI_USAGE.md` | Trust model; how AI agents built this and what the human decided |
 
-Built with `create-qorechain-dapp` (scaffold), [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) `v0.1.0`, `@qorechain/sdk` and `@qorechain/evm` 0.14.0, `@qorechain/qoreseal` 0.1.0, `@qorechain/qoresign` 0.2.0, `@qorechain/pqc` 0.2.3, `@qorechain/qorex-types` and `@qorechain/qorex-wallet-mock` 0.1.0, `@qorechain/qore-cli` and `@qorechain/mcp` 0.1.1, `@qorechain/qorescan` 0.1.0, OpenZeppelin Contracts 5.4.0. Which QoreChain kits and network features this project uses, why, and the evidence for each: [`docs/kits.md`](docs/kits.md).
+Built with `create-qorechain-dapp` (scaffold), [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) `v0.1.0`, `@qorechain/sdk` and `@qorechain/evm` 0.14.0, `@qorechain/qoreseal` 0.1.0, `@qorechain/qoresign` 0.2.0, `@qorechain/pqc` 0.2.3, `@qorechain/qorex-types` and `@qorechain/qorex-wallet-mock` 0.1.0, `@qorechain/qore-cli` and `@qorechain/mcp` 0.1.1, `@qorechain/qorescan` 0.1.0, `@qorechain/wallet-adapter` 0.6.0, OpenZeppelin Contracts 5.4.0. Which QoreChain kits and network features this project uses, why, and the evidence for each: [`docs/kits.md`](docs/kits.md).
 
 ## Prior work
 

@@ -18,6 +18,7 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | Relayer, keeper, anyone | gas | nothing; every privileged message carries its own signature, and every other step is permissionless |
 | REST proxy | nothing | nothing; its answers are checked against hashes the key owners signed on chain |
 | Guest account (a visitor's browser) | a testnet key pair in that browser's storage, a little test QOR and PEAL-T | nothing; it is a bidder like any other |
+| MetaMask linked to a guest account | a classical secp256k1 key | only what the account's spending rule admits: this auction, its token and the demo faucet, capped, for 24 hours |
 | Hosted site (Vercel) and its rewrites | the page code; forwards allowlisted REST reads and RPC broadcasts | to serve the code in this repository. It holds no keys; a broadcast it forwards is signed, so it can drop one but not change it |
 
 ## Attacks and what stops them
@@ -46,6 +47,7 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | The hosted rewrite or REST lies about a guest's balance, key or window | Only what the page shows is affected: the chain itself checks every key, window and balance, and a broadcast is signed before it leaves the browser | design |
 | The demo auction fills up with junk bids | At most 20 bids; each needs a registered ML-DSA-87 key, a window and a bond; junk is excluded and its bond burns | `create --max-bids 20`; `test_malformedPlaintextBurnsBond` |
 | Stolen classical (secp256k1) key | QoreChain admits EVM transactions only inside a window opened by a hybrid ML-DSA-87 signature. The scripts scope every window to the contracts an account needs and to an exact transaction count | testnet demo (scoped windows, spent windows inert) |
+| Stolen MetaMask key linked to a bidder's account | The key is an authenticator on the bidder's post-quantum account, linked by the owner's hybrid signature with a possession proof, for 24 hours. The account's spending rule admits only the demo faucet's `claim`, the quote token's `approve`, and `commitBid` and `claim` on that one auction, and caps the quote token per call and per day. Anything else comes back `success = false`, and the owner can revoke the key. Residual: within the caps the key can approve or transfer the quote token, because the chain lets a listed token move (Peal Bidder's finding) | `test-ts/linked-key.test.ts`; testnet: an approve of fUSD outside the rule refused (`B04CA6CD…145C`), an approve over the per-call cap refused (`837DBC8D…5F1B`), bids inside the rule executed (`8B0B3A1D…46E3`, `3F5BAD73…4109`) |
 
 ## Design rules (from Peal's plan 017 review, credited)
 

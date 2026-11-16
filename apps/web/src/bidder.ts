@@ -32,7 +32,7 @@ import {
 } from "./common.ts";
 import { amount, duration, h, icon } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
-import { buyOnAmm } from "./wallet/store.ts";
+import { actWithMetaMask, buyOnAmm } from "./wallet/store.ts";
 
 const faucetAbi = parseAbi(["function claim(uint256 amount)", "function claimableBy(address who) view returns (uint256 amount, uint64 availableAt)"]);
 
@@ -199,9 +199,22 @@ async function main(): Promise<void> {
   qty.addEventListener("input", () => void preview());
   tick.addEventListener("change", () => void preview());
 
-  sealBtn.onclick = () =>
-    guard(sealBtn, async () => {
+  // MetaMask, through the guest account as a linked key under a spending rule (client/linked-key.ts).
+  const sealMmBtn = el("button", { id: "seal-commit-metamask", class: "secondary" }, "Seal, and sign in MetaMask") as HTMLButtonElement;
+  if (cfg.network === "testnet") {
+    sealBtn.parentElement?.append(sealMmBtn);
+    sealBtn.parentElement?.after(
+      el(
+        "p",
+        { class: "small muted" },
+        "With MetaMask connected in the wallet, your guest account links it once under an on-chain spending rule. The rule allows only this auction, its token and the demo faucet, capped per call and per day. MetaMask then signs each call, and the guest relays it. A stolen MetaMask key can do nothing else.",
+      ),
+    );
+  }
+  const commitWith = (btn: HTMLButtonElement, viaMetaMask: boolean) =>
+    guard(btn, async () => {
       if (!actor) throw new Error("choose an account first");
+      if (viaMetaMask && actor.kind !== "guest") throw new Error("MetaMask bids through the guest account: choose the guest account");
       if (!recipients) throw new Error("check the committee first");
       const quantity = parseUnits(qty.value || "0", saleDec);
       if (quantity === 0n) throw new Error("enter a quantity");
@@ -221,7 +234,7 @@ async function main(): Promise<void> {
             `needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}${s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase() && cfg.network === "testnet" ? `: buy the ${fmt(needed - bal, quoteDec)} ${quoteSym} shortfall on the AMM above` : ""}`,
           );
         calls.push({ to: cfg.faucet!, data: encodeFunctionData({ abi: faucetAbi, functionName: "claim", args: [canClaim] }), label: `Claim ${amount(canClaim, quoteDec)} ${quoteSym} from the demo faucet` });
-        logLine(`not enough ${quoteSym}: the faucet claim joins the same window`, "info");
+        logLine(`not enough ${quoteSym}: the faucet claim joins the same ${viaMetaMask ? "relay" : "window"}`, "info");
       }
       const t0 = performance.now();
       const c = sealBid({ chainId: BigInt(cfg.chainId), auction, bidder: actor.address, seq: ctx.seq, quantity, tick: t, recipients, threshold: s.threshold });
@@ -242,14 +255,28 @@ async function main(): Promise<void> {
           label: "Commit the sealed bid",
         },
       );
-      const hashes = await runCalls(cfg, actor, "Place a sealed bid", calls);
-      const hash = hashes[hashes.length - 1]!;
+      let hash: string;
+      if (viaMetaMask) {
+        const perBid = parseUnits("100", quoteDec) > needed ? parseUnits("100", quoteDec) : needed;
+        const tx = await actWithMetaMask(
+          "Place a sealed bid, signed in MetaMask",
+          { auction, token: s.cfg.quoteToken, ...(cfg.faucet ? { faucet: cfg.faucet } : {}), perBid, daily: perBid * 3n },
+          calls,
+        );
+        if (!tx) throw new Error("the MetaMask bid did not complete; see the wallet drawer");
+        hash = tx;
+      } else {
+        const hashes = await runCalls(cfg, actor, "Place a sealed bid", calls);
+        hash = hashes[hashes.length - 1]!;
+      }
       show("commit tx", hash);
       logLine(`bid committed: escrow ${fmt(ctx.escrow, quoteDec)} + bond ${fmt(ctx.bond, quoteDec)} ${quoteSym}, tx ${short(hash)}`, "ok");
       out.append(
         el("div", {}, "next"),
         el("div", {}, "After the close the committee releases and the contract opens every bid. ", el("a", { href: `./results.html${carry(cfg)}` }, "Watch the results"), "."),
       );
-      await showBalance();
+            await showBalance();
     });
+  sealBtn.onclick = () => commitWith(sealBtn, false);
+  sealMmBtn.onclick = () => commitWith(sealMmBtn, true);
 }
