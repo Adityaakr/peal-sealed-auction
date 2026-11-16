@@ -108,10 +108,10 @@ export function mark(product: Product = "auction", cls = "mark"): SVGSVGElement 
   return svg;
 }
 
-export const FAMILY: { id: Product; name: string; line: string; href: string }[] = [
-  { id: "tender", name: "Peal Tender", line: "A treasury held by post-quantum signatures, with sealed buybacks.", href: "https://github.com/Adityaakr/peal-tender" },
-  { id: "auction", name: "Peal Sealed Auction", line: "Sealed bids no single key holder can open before the close.", href: "https://github.com/Adityaakr/peal-sealed-auction" },
-  { id: "bidder", name: "Peal Bidder", line: "An agent that bids for you, only inside mandates you signed.", href: "https://github.com/Adityaakr/peal-bidder" },
+export const FAMILY: { id: Product; name: string; role: string; line: string; href: string }[] = [
+  { id: "tender", name: "Peal Tender", role: "the treasury", line: "A treasury held by post-quantum signatures, with sealed buybacks.", href: "https://github.com/Adityaakr/peal-tender" },
+  { id: "auction", name: "Peal Sealed Auction", role: "the venue", line: "Sealed bids no single key holder can open before the close.", href: "https://github.com/Adityaakr/peal-sealed-auction" },
+  { id: "bidder", name: "Peal Bidder", role: "the participant", line: "An agent that bids for you, only inside mandates you signed.", href: "https://github.com/Adityaakr/peal-bidder" },
 ];
 
 // ---------------------------------------------------------------- pieces

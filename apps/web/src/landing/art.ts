@@ -1,329 +1,532 @@
 /**
- * art.ts - the landing page's hand-made illustrations, drawn with the real names.
+ * art.ts - the landing page's schematics, drawn with the real names and sizes.
  *
- * - heroArt / heroArtPhone: the whole mechanism on one picture. A bid encrypted
- *   under a fresh key K; K split into three shares, each sealed with ML-KEM-1024
- *   to one committee member; after closeCommit two members release with ML-DSA-87
- *   (pqcVerify), the third is offline; the contract rebuilds K, opens the bids and
- *   clears them at one price. The figures are the testnet demo run's.
- * - railArt: four panels, one per "how it works" step, highlighted by the step rail.
+ * Peal Sealed Auction's own look (the "sealed envelope"): ink lines on the night
+ * ground, paper-white labels, brass for what is sealed or keyed, green only for an
+ * accepted check and red only for a refusal. Colours come from CSS custom
+ * properties (var(--…)) so the drawings follow the page's tokens.
  *
- * Shapes are white cards with hairlines on the accent ramp; green and red only for
- * an outcome. Paths that carry meaning have pathLength 1 so CSS can draw them in
- * once (behind prefers-reduced-motion: no-preference); the still state reads alone.
+ * - anatomyArt: one bid as the contract stores it. The 32-byte plaintext
+ *   (u128 quantity ‖ u16 tick ‖ 14 zero bytes) XORed with keccak(…, K) into ct;
+ *   K hashed into keyHash and split 2-of-3; each share hashed on chain and sealed
+ *   with ML-KEM-1024 + X25519 to one member, as a 1,752-byte envelope.
+ * - keysArt: after closeCommit, members 1 and 2 release with ML-DSA-87; pqcVerify
+ *   accepts them and refuses an outsider; any two shares rebuild K, checked
+ *   against keyHash, and openBids decrypts.
+ * - clearingChart: the demand of the opened bids against the supply, and the one
+ *   price where they meet.
+ * Each schematic has a separate phone drawing; none is the desktop one shrunk.
  */
 import { s } from "../ui.ts";
 
+const MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+const SANS = "Geist, system-ui, sans-serif";
 const C = {
-  ink: "#111827",
-  ink2: "#374151",
-  muted: "#6b7280",
-  soft: "#9ca3af",
-  line: "#e5e7eb",
-  a50: "#eff6ff",
-  a100: "#dbeafe",
-  a200: "#bfdbfe",
-  a300: "#93c5fd",
-  a400: "#60a5fa",
-  a600: "#2563eb",
-  a800: "#1e40af",
-  green: "#16a34a",
-  greenWeak: "#f0fdf4",
-  red: "#dc2626",
-  redWeak: "#fef2f2",
+  ink: "var(--paper)",
+  ink2: "var(--paper-2)",
+  muted: "var(--muted)",
+  line: "var(--line)",
+  rule: "var(--rule)",
+  vault: "var(--vault)",
+  brass: "var(--brass)",
+  brassDim: "var(--brass-dim)",
+  ok: "var(--ok)",
+  bad: "var(--bad)",
 };
-const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 type A = Record<string, string | number>;
-const text = (x: number, y: number, t: string, a: A = {}) => s("text", { x, y, "font-size": 12, fill: C.muted, ...a }, t);
-const card = (x: number, y: number, w: number, hh: number, a: A = {}) =>
-  s("rect", { x, y, width: w, height: hh, rx: 12, fill: "#fff", stroke: C.line, "stroke-width": 1, ...a });
-const flow = (d: string, a: A = {}) =>
-  s("path", { d, fill: "none", stroke: C.a300, "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round", pathLength: 1, class: "draw", ...a });
+const t = (x: number, y: number, txt: string, a: A = {}) => s("text", { x, y, "font-size": 12, "font-family": SANS, fill: C.ink2, ...a }, txt);
+const m = (x: number, y: number, txt: string, a: A = {}) => t(x, y, txt, { "font-family": MONO, "font-size": 11.5, fill: C.ink, ...a });
+const box = (x: number, y: number, w: number, h: number, a: A = {}) =>
+  s("rect", { x, y, width: w, height: h, rx: 6, fill: C.vault, stroke: C.line, "stroke-width": 1, ...a });
+const path = (d: string, a: A = {}) =>
+  s("path", { d, fill: "none", stroke: C.line, "stroke-width": 1.25, "stroke-linecap": "round", "stroke-linejoin": "round", "marker-end": "url(#sa-arrow)", ...a });
 const g = (a: A, ...kids: SVGElement[]) => s("g", a, ...kids);
 
-function lockGlyph(cx: number, cy: number, color = C.a600): SVGElement {
-  return g(
-    { transform: `translate(${cx - 6} ${cy - 7})`, fill: "none", stroke: color, "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round" },
-    s("path", { d: "M2.5 6.5V4.5a3.5 3.5 0 017 0v2" }),
-    s("rect", { x: 1, y: 6.5, width: 10, height: 7, rx: 1.5, fill: "#fff" }),
-  );
+let uid = 0;
+function root(w: number, h: number, label: string, cls: string): SVGSVGElement {
+  const id = ++uid;
+  const r = s("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": label, class: cls }) as SVGSVGElement;
+  const mk = (name: string, color: string) =>
+    s("marker", { id: `${name}-${id}`, viewBox: "0 0 10 10", refX: 8.5, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto-start-reverse" }, s("path", { d: "M1 1L9 5L1 9z", fill: color }));
+  r.append(s("defs", {}, mk("sa-arrow", "var(--line)"), mk("sa-arrow-brass", "var(--brass)"), mk("sa-arrow-bad", "var(--bad)")));
+  r.dataset.uid = String(id);
+  return r;
 }
 
-function check(cx: number, cy: number, color = C.green): SVGElement {
-  return s("path", { d: `M${cx - 4} ${cy}l3 3 5.5-6`, fill: "none", stroke: color, "stroke-width": 1.8, "stroke-linecap": "round", "stroke-linejoin": "round" });
+/** Point marker references at this drawing's own markers (ids must be unique on the page). */
+function fixMarkers(r: SVGSVGElement): SVGSVGElement {
+  const id = r.dataset.uid;
+  r.querySelectorAll("[marker-end]").forEach((p) => p.setAttribute("marker-end", p.getAttribute("marker-end")!.replace(/#(sa-arrow[a-z-]*)\)/, `#$1-${id})`)));
+  return r;
 }
 
-function envelope(cx: number, y: number, w = 108, label = "ML-KEM-1024"): SVGElement {
-  const x = cx - w / 2;
-  return g(
-    { class: "pop" },
-    s("rect", { x, y, width: w, height: 50, rx: 8, fill: C.a50, stroke: C.a300, "stroke-width": 1.5 }),
-    s("path", { d: `M${x + 1} ${y + 2} L${cx} ${y + 20} L${x + w - 1} ${y + 2}`, fill: "none", stroke: C.a300, "stroke-width": 1.5, "stroke-linejoin": "round" }),
-    s("rect", { x: cx - 5, y: y + 15, width: 10, height: 10, rx: 2, fill: C.a600 }),
-    text(cx, y + 42, label, { "text-anchor": "middle", "font-size": 11, "font-family": MONO, fill: C.a800 }),
-  );
-}
-
-function member(cx: number, y: number, n: number, on: boolean, w = 140): SVGElement {
-  const x = cx - w / 2;
-  return g(
-    {},
-    card(x, y, w, 58, on ? {} : { "stroke-dasharray": "4 4", stroke: C.soft }),
-    s("circle", { cx: x + 26, cy: y + 29, r: 13, fill: on ? C.a50 : "#fff", stroke: on ? C.a600 : C.soft, "stroke-width": 1.6 }),
-    text(x + 26, y + 33.5, String(n), { "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: on ? C.a600 : C.soft }),
-    text(x + 48, y + 26, `Member ${n}`, { "font-size": 13, "font-weight": 600, fill: on ? C.ink : C.muted }),
-    text(x + 48, y + 43, on ? "released" : "offline", { fill: on ? C.green : C.soft, class: on ? "pop late" : "" }),
-  );
-}
-
-/** The chain strip: the contract's calls in order, with what each does. */
-function chainBar(x: number, y: number, w: number, steps: [string, string, boolean?][]): SVGElement {
-  const out = g({}, card(x, y, w, 96), text(x + 16, y + 22, "SealedAuction on QoreChain", { "font-size": 12, fill: C.muted }));
-  const x0 = x + 52;
-  const x1 = x + w - 52;
-  const ty = y + 58;
-  out.append(s("path", { d: `M${x0} ${ty}H${x1}`, stroke: C.a100, "stroke-width": 2, "stroke-linecap": "round" }));
-  steps.forEach(([call, what, outcome], i) => {
-    const cx = x0 + ((x1 - x0) * i) / (steps.length - 1);
+/** 32 byte cells: quantity (16), tick (2), zero padding (14). `scrambled` draws ct instead. */
+function byteStrip(x: number, y: number, cell: number, scrambled: boolean): SVGElement {
+  const out = g({});
+  // A fixed shade per cell for ct: deterministic, so the drawing never changes.
+  const shade = (i: number) => [0.25, 0.7, 0.45, 0.9, 0.35, 0.6, 0.8, 0.3][(i * 5 + 3) % 8]!;
+  for (let i = 0; i < 32; i++) {
+    const kind = i < 16 ? "q" : i < 18 ? "t" : "z";
     out.append(
-      text(cx, ty - 12, call, { "text-anchor": "middle", "font-size": 11.5, "font-family": MONO, fill: C.ink }),
-      outcome
-        ? g({ class: "pop late" }, s("circle", { cx, cy: ty, r: 9, fill: C.greenWeak, stroke: C.green, "stroke-width": 1.5 }), check(cx, ty))
-        : s("circle", { cx, cy: ty, r: 5, fill: C.a600 }),
-      text(cx, ty + 24, what, { "text-anchor": "middle", "font-size": 11.5, fill: outcome ? C.green : C.muted }),
+      s("rect", {
+        x: x + i * cell,
+        y,
+        width: cell - 2,
+        height: 18,
+        rx: 1.5,
+        fill: scrambled || kind !== "z" ? C.brass : "none",
+        "fill-opacity": scrambled ? shade(i) : kind === "q" ? 0.55 : 1,
+        stroke: kind === "z" && !scrambled ? C.line : "none",
+        "stroke-width": 1,
+      }),
     );
-  });
+  }
   return out;
 }
 
-function svgRoot(w: number, hh: number, label: string, cls: string): SVGSVGElement {
-  const r = s("svg", { viewBox: `0 0 ${w} ${hh}`, role: "img", "aria-label": label, class: cls }) as SVGSVGElement;
-  r.style.fontFamily = "Satoshi, system-ui, sans-serif";
-  return r;
-}
+const ANATOMY_LABEL =
+  "One sealed bid. In the browser the 32-byte plaintext, a 16-byte quantity, a 2-byte tick and 14 zero bytes, is XORed with keccak of the context and a fresh key K into the ciphertext ct. K is hashed into keyHash and split two of three into shares s1, s2, s3. commitBid stores ct, keyHash and the three share hashes, pulls escrow and bond, and emits three 1,752-byte envelopes, each sealing one share with ML-KEM-1024 and X25519 to one committee member's registered key.";
 
-const HERO_LABEL =
-  "A bid of 60 PEAL-T at most 2.50 fUSD is encrypted under a fresh key K in the browser. K is split into three shares, each sealed with ML-KEM-1024 to one committee member. After closeCommit, members 1 and 2 release with ML-DSA-87 signatures that the contract checks with pqcVerify; member 3 is offline. The contract rebuilds K from two shares, opens the bids and clears them at one price, 1.50.";
-
-/** The hero picture, desktop. */
-export function heroArt(): SVGSVGElement {
-  const r = svgRoot(560, 470, HERO_LABEL, "hero-art art-wide");
-  // Row 1: the bid, encrypted under K.
+/** One sealed bid, as the contract stores it. Desktop. */
+export function anatomyArt(): SVGSVGElement {
+  const r = root(1040, 400, ANATOMY_LABEL, "art art-wide anatomy");
+  const cell = 7;
   r.append(
-    card(16, 16, 196, 84),
-    text(32, 40, "Your bid, in this browser"),
-    text(32, 64, "60 PEAL-T", { "font-size": 17, "font-weight": 600, fill: C.ink }),
-    text(32, 84, "at most 2.50 fUSD each", { "font-size": 12, fill: C.ink2 }),
-    s("circle", { cx: 188, cy: 40, r: 13, fill: C.a50, stroke: C.a200 }),
-    lockGlyph(188, 40),
-    flow("M214 58H272", { "marker-end": "url(#arrow)" }),
-    text(243, 50, "encrypt", { "text-anchor": "middle", "font-size": 11 }),
-    s("circle", { cx: 300, cy: 58, r: 22, fill: C.a600 }),
-    text(300, 64, "K", { "text-anchor": "middle", "font-size": 17, "font-weight": 600, fill: "#fff" }),
-    text(336, 52, "A fresh key K", { "font-size": 13, "font-weight": 600, fill: C.ink }),
-    text(336, 70, "split into 3 shares; any 2 rebuild it"),
+    t(0, 18, "In the bidder's browser", { "font-size": 12.5, fill: C.muted }),
+    byteStrip(0, 44, cell, false),
+    t(0, 80, "quantity · u128", { "font-size": 11.5 }),
+    s("path", { d: `M${16 * cell + 6} 40V34H${16 * cell + 40}`, fill: "none", stroke: C.line, "stroke-width": 1 }),
+    t(16 * cell + 44, 37, "tick · u16", { "font-size": 11.5 }),
+    t(18 * cell + 4, 80, "14 zero bytes", { "font-size": 11.5, fill: C.muted }),
+    m(0, 112, "⊕ keccak(chain, auction, bidder, seq, K)", { fill: C.brass }),
+    byteStrip(0, 128, cell, true),
+    m(0, 166, "ct · 32 bytes", { fill: C.ink2 }),
+    s("circle", { cx: 34, cy: 238, r: 22, fill: "none", stroke: C.brass, "stroke-width": 1.5 }),
+    m(34, 243, "K", { "text-anchor": "middle", "font-size": 15, fill: C.brass, "font-weight": 500 }),
+    t(0, 370, "K: a fresh key, random in F_p,", { "font-size": 11.5 }),
+    t(0, 386, "split 2 of 3 (Shamir)", { "font-size": 11.5, fill: C.muted }),
   );
-  // Ciphertext goes straight to the chain.
-  r.append(
-    s("path", { d: "M34 100V384Q34 414 56 414", fill: "none", stroke: C.a400, "stroke-width": 1.5, "stroke-dasharray": "3 4", "stroke-linecap": "round" }),
-    text(26, 250, "ciphertext", { transform: "rotate(-90 26 250)", "text-anchor": "middle", "font-size": 11, fill: C.a600 }),
-  );
-  // Row 2: three shares fan out to three envelopes.
-  const xs = [128, 296, 464];
-  for (const cx of xs) r.append(flow(`M300 80C300 112 ${cx} 108 ${cx} 140`));
-  xs.forEach((cx) => r.append(envelope(cx, 140)));
-  // Row 3: the members.
-  xs.forEach((cx, i) => r.append(flow(`M${cx} 190V230`, i === 2 ? { stroke: C.a200 } : {})));
-  xs.forEach((cx, i) => r.append(member(cx, 230, i + 1, i < 2)));
-  // Releases converge on submitRelease.
-  r.append(
-    flow("M128 288C128 330 282 324 282 402", { class: "draw late", stroke: C.a600, "marker-end": "url(#arrow-strong)" }),
-    flow("M296 288C296 330 282 344 282 402", { class: "draw late", stroke: C.a600 }),
-    g({ class: "pop late" }, s("rect", { x: 312, y: 318, width: 118, height: 24, rx: 12, fill: C.a50, stroke: C.a200 }), text(371, 334, "ML-DSA-87 signed", { "text-anchor": "middle", "font-size": 11.5, "font-weight": 600, fill: C.a600 })),
-  );
-  // Row 4: the contract.
-  r.append(
-    chainBar(8, 356, 544, [
-      ["commitBid", "stored"],
-      ["closeCommit", "set frozen"],
-      ["submitRelease", "pqcVerify ✓ ✓"],
-      ["openBids", "K rebuilt"],
-      ["finalize", "1.50 each", true],
-    ]),
-  );
-  r.prepend(defs());
-  return r;
-}
-
-/** The hero picture on a phone: the same story, drawn top to bottom. */
-export function heroArtPhone(): SVGSVGElement {
-  const r = svgRoot(340, 520, HERO_LABEL, "hero-art art-phone");
-  r.append(
-    card(10, 8, 320, 70),
-    text(26, 30, "Your bid, in this browser"),
-    text(26, 54, "60 PEAL-T at most 2.50 fUSD", { "font-size": 14, "font-weight": 600, fill: C.ink }),
-    flow("M170 78V104"),
-    s("circle", { cx: 170, cy: 126, r: 20, fill: C.a600 }),
-    text(170, 132, "K", { "text-anchor": "middle", "font-size": 16, "font-weight": 600, fill: "#fff" }),
-    text(200, 122, "fresh key K,", { "font-size": 12, "font-weight": 600, fill: C.ink }),
-    text(200, 138, "split 2 of 3", { "font-size": 12 }),
-  );
-  const xs = [62, 170, 278];
-  for (const cx of xs) r.append(flow(`M170 146C170 166 ${cx} 160 ${cx} 180`));
-  xs.forEach((cx) => r.append(envelope(cx, 180, 96, "ML-KEM")));
-  xs.forEach((cx, i) => r.append(flow(`M${cx} 230V256`, i === 2 ? { stroke: C.a200 } : {})));
-  xs.forEach((cx, i) => {
-    const on = i < 2;
-    r.append(
-      card(cx - 50, 256, 100, 52, on ? {} : { "stroke-dasharray": "4 4", stroke: C.soft }),
-      text(cx, 278, `Member ${i + 1}`, { "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: on ? C.ink : C.muted }),
-      text(cx, 296, on ? "released" : "offline", { "text-anchor": "middle", "font-size": 11.5, fill: on ? C.green : C.soft }),
-    );
+  [0, 1, 2].forEach((i) => {
+    const x = 6 + i * 76;
+    r.append(path(`M34 260 C34 290 ${x + 28} 286 ${x + 28} 312`), box(x, 316, 56, 26, { stroke: C.brass, fill: "none" }), m(x + 28, 333, `s${i + 1}`, { "text-anchor": "middle", fill: C.brass }));
   });
-  r.append(
-    flow("M62 308C62 336 150 330 150 356", { class: "draw late", stroke: C.a600 }),
-    flow("M170 308V356", { class: "draw late", stroke: C.a600 }),
-    text(186, 340, "ML-DSA-87 · pqcVerify", { "font-size": 11, "font-weight": 600, fill: C.a600 }),
-    card(10, 356, 320, 156),
-    text(26, 380, "SealedAuction on QoreChain"),
-  );
-  const rows: [string, string, boolean?][] = [
-    ["commitBid", "ciphertext stored"],
-    ["closeCommit", "bid set frozen"],
-    ["submitRelease ×2", "both signatures checked"],
-    ["openBids · finalize", "K rebuilt, 1.50 each", true],
+
+  const bx = 400;
+  r.append(t(bx, 18, "commitBid, on chain", { "font-size": 12.5, fill: C.muted }), box(bx, 34, 300, 330));
+  const rows: [string, string, string][] = [
+    ["ct", "32 B", "stored"],
+    ["keyHash = H(K)", "32 B", "stored"],
+    ["H(s1) H(s2) H(s3)", "3 × 32 B", "stored"],
+    ["escrow + bond", "quote token", "pulled"],
+    ["envelopes", "3 × 1,752 B", "in the event only"],
   ];
-  rows.forEach(([call, what, ok], i) => {
-    const y = 404 + i * 28;
+  rows.forEach(([k, size, how], i) => {
+    const y = 66 + i * 60;
+    if (i) r.append(s("line", { x1: bx, y1: y - 22, x2: bx + 300, y2: y - 22, stroke: C.rule, "stroke-width": 1 }));
     r.append(
-      ok ? g({ class: "pop late" }, s("circle", { cx: 32, cy: y - 4, r: 8, fill: C.greenWeak, stroke: C.green, "stroke-width": 1.4 }), check(32, y - 4)) : s("circle", { cx: 32, cy: y - 4, r: 4.5, fill: C.a600 }),
-      text(48, y, call, { "font-size": 11.5, "font-family": MONO, fill: C.ink }),
-      text(318, y, what, { "text-anchor": "end", "font-size": 11.5, fill: ok ? C.green : C.muted }),
+      m(bx + 16, y, k, { "font-size": 12.5 }),
+      m(bx + 284, y, size, { "text-anchor": "end", fill: C.ink2 }),
+      t(bx + 16, y + 18, how, { "font-size": 11, fill: i === 4 ? C.brass : C.muted }),
     );
   });
-  r.prepend(defs());
+  r.append(
+    path(`M228 137 C300 137 330 66 ${bx - 4} 66`),
+    path(`M57 238 C200 238 300 126 ${bx - 4} 126`),
+    path(`M232 329 C320 329 330 186 ${bx - 4} 186`),
+  );
+
+  const cx = 800;
+  r.append(t(cx, 18, "Each member's registered key", { "font-size": 12.5, fill: C.muted }));
+  [0, 1, 2].forEach((i) => {
+    const y = 60 + i * 104;
+    r.append(
+      path(`M${bx + 300} 306 C${bx + 360} 306 ${cx - 50} ${y + 26} ${cx - 6} ${y + 26}`, { stroke: C.brassDim, "marker-end": "url(#sa-arrow-brass)" }),
+      box(cx, y, 240, 52),
+      s("path", { d: `M${cx + 16} ${y + 16}h30v20h-30zM${cx + 16} ${y + 16}l15 10 15-10`, fill: "none", stroke: C.brass, "stroke-width": 1.25, "stroke-linejoin": "round" }),
+      s("rect", { x: cx + 28, y: y + 23, width: 6, height: 6, rx: 1, fill: C.brass }),
+      t(cx + 60, y + 23, `Member ${i + 1}`, { "font-size": 13, fill: C.ink, "font-weight": 500 }),
+      m(cx + 60, y + 40, "ML-KEM-1024 + X25519", { "font-size": 11, fill: C.ink2 }),
+    );
+  });
+  r.append(t(cx, 390, "each opens only its own share", { "font-size": 11, fill: C.muted }));
+  return fixMarkers(r);
+}
+
+/** One sealed bid, top to bottom, for a phone. */
+export function anatomyArtPhone(): SVGSVGElement {
+  const r = root(340, 640, ANATOMY_LABEL, "art art-phone anatomy");
+  const cell = 9.5;
+  r.append(
+    t(0, 16, "In the bidder's browser", { "font-size": 13, fill: C.muted }),
+    byteStrip(10, 32, cell, false),
+    t(10, 68, "quantity · u128", { "font-size": 12 }),
+    s("path", { d: `M${10 + 16 * cell + 8} 28V22H${10 + 16 * cell + 40}`, fill: "none", stroke: C.line, "stroke-width": 1 }),
+    t(10 + 16 * cell + 44, 26, "tick · u16", { "font-size": 12 }),
+    t(10 + 18 * cell + 6, 68, "14 zero bytes", { "font-size": 12, fill: C.muted }),
+    m(10, 98, "⊕ keccak(…, K)", { fill: C.brass, "font-size": 12.5 }),
+    byteStrip(10, 112, cell, true),
+    m(10, 150, "ct · 32 bytes", { fill: C.ink2, "font-size": 12.5 }),
+    s("circle", { cx: 32, cy: 196, r: 20, fill: "none", stroke: C.brass, "stroke-width": 1.5 }),
+    m(32, 201, "K", { "text-anchor": "middle", "font-size": 15, fill: C.brass }),
+    t(62, 192, "fresh key, split 2 of 3", { "font-size": 12.5 }),
+    t(62, 208, "H(K) goes on chain as keyHash", { "font-size": 12, fill: C.muted }),
+    t(0, 252, "commitBid, on chain", { "font-size": 13, fill: C.muted }),
+    box(0, 264, 340, 210),
+  );
+  const rows: [string, string][] = [
+    ["ct", "32 B"],
+    ["keyHash = H(K)", "32 B"],
+    ["H(s1) H(s2) H(s3)", "3 × 32 B"],
+    ["escrow + bond", "pulled"],
+    ["envelopes (event)", "3 × 1,752 B"],
+  ];
+  rows.forEach(([k, v], i) => {
+    const y = 296 + i * 38;
+    if (i) r.append(s("line", { x1: 0, y1: y - 18, x2: 340, y2: y - 18, stroke: C.rule, "stroke-width": 1 }));
+    r.append(m(14, y + 2, k, { "font-size": 12.5, fill: i === 4 ? C.brass : C.ink }), m(326, y + 2, v, { "text-anchor": "end", fill: C.ink2, "font-size": 12.5 }));
+  });
+  r.append(t(0, 512, "Each envelope opens for one member only", { "font-size": 13, fill: C.muted }));
+  [0, 1, 2].forEach((i) => {
+    const x = i * 116;
+    r.append(
+      box(x, 528, 108, 92),
+      s("path", { d: `M${x + 39} 546h30v20h-30zM${x + 39} 546l15 10 15-10`, fill: "none", stroke: C.brass, "stroke-width": 1.25 }),
+      s("rect", { x: x + 51, y: 553, width: 6, height: 6, rx: 1, fill: C.brass }),
+      t(x + 54, 590, `Member ${i + 1}`, { "text-anchor": "middle", "font-size": 12.5, fill: C.ink }),
+      m(x + 54, 607, "ML-KEM-1024", { "text-anchor": "middle", "font-size": 11, fill: C.ink2 }),
+    );
+  });
+  return fixMarkers(r);
+}
+
+const KEYS_LABEL =
+  "After closeCommit, members 1 and 2 each sign one release with ML-DSA-87. pqcVerify accepts both and refuses an outsider's forged release with ReleaseSignatureInvalid. Member 3 is offline. Any two shares rebuild K, which must match keyHash; then openBids decrypts every bid.";
+
+/** Two of three keys meet. Desktop. */
+export function keysArt(): SVGSVGElement {
+  const r = root(1040, 320, KEYS_LABEL, "art art-wide keys");
+  const members: [string, string, "ok" | "off" | "bad"][] = [
+    ["Member 1", "ML-DSA-87 release", "ok"],
+    ["Member 2", "ML-DSA-87 release", "ok"],
+    ["Member 3", "offline", "off"],
+    ["Outsider", "forged release", "bad"],
+  ];
+  members.forEach(([who, what, st], i) => {
+    const y = 6 + i * 78;
+    const stroke = st === "bad" ? C.bad : st === "off" ? C.rule : C.brass;
+    r.append(
+      box(0, y, 230, 58, st === "off" ? { "stroke-dasharray": "4 4" } : { stroke }),
+      g(
+        { fill: "none", stroke: st === "off" ? C.muted : st === "bad" ? C.bad : C.brass, "stroke-width": 1.5, "stroke-linecap": "round" },
+        s("circle", { cx: 26, cy: y + 29, r: 7 }),
+        s("path", { d: `M33 ${y + 29}h18M45 ${y + 29}v6M50 ${y + 29}v4` }),
+      ),
+      t(66, y + 25, who, { "font-size": 13, fill: st === "off" ? C.muted : C.ink, "font-weight": 500 }),
+      m(66, y + 43, what, { "font-size": 11, fill: st === "bad" ? C.bad : C.ink2 }),
+    );
+    if (st === "ok") r.append(path(`M232 ${y + 29} C300 ${y + 29} 300 128 362 128`, { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)", class: "draw", pathLength: 1 }));
+    if (st === "bad") r.append(path(`M232 ${y + 29} C310 ${y + 29} 320 168 362 160`, { stroke: C.bad, "marker-end": "url(#sa-arrow-bad)", "stroke-dasharray": "3 4" }));
+  });
+  r.append(
+    box(366, 96, 200, 78, { stroke: C.ink2 }),
+    m(466, 126, "pqcVerify", { "text-anchor": "middle", "font-size": 14, "font-weight": 500 }),
+    t(466, 146, "key from pqcKeyStatus", { "text-anchor": "middle", "font-size": 11, fill: C.muted }),
+    t(466, 162, "two accepted", { "text-anchor": "middle", "font-size": 11, fill: C.ok }),
+    m(466, 214, "ReleaseSignatureInvalid", { "text-anchor": "middle", fill: C.bad, "font-size": 11.5 }),
+    t(466, 232, "the forged one reverts", { "text-anchor": "middle", "font-size": 11, fill: C.muted }),
+    path("M566 135H632", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)", class: "draw", pathLength: 1 }),
+    box(636, 96, 196, 78),
+    m(734, 126, "K from s1, s2", { "text-anchor": "middle", "font-size": 13 }),
+    t(734, 146, "Lagrange, any two of three", { "text-anchor": "middle", "font-size": 11, fill: C.muted }),
+    t(734, 162, "H(K) = keyHash", { "text-anchor": "middle", "font-size": 11, fill: C.ok }),
+    path("M832 135H898", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)", class: "draw", pathLength: 1 }),
+    box(902, 96, 138, 78, { stroke: C.brass }),
+    m(971, 126, "openBids", { "text-anchor": "middle", "font-size": 13, fill: C.brass }),
+    t(971, 146, "every bid", { "text-anchor": "middle", "font-size": 11, fill: C.muted }),
+    t(971, 162, "decrypted on chain", { "text-anchor": "middle", "font-size": 11, fill: C.muted }),
+  );
+  return fixMarkers(r);
+}
+
+/** Two of three keys meet, top to bottom, for a phone. */
+export function keysArtPhone(): SVGSVGElement {
+  const r = root(340, 560, KEYS_LABEL, "art art-phone keys");
+  const members: [string, string, "ok" | "off" | "bad"][] = [
+    ["Member 1", "ML-DSA-87", "ok"],
+    ["Member 2", "ML-DSA-87", "ok"],
+    ["Member 3", "offline", "off"],
+    ["Outsider", "forged", "bad"],
+  ];
+  members.forEach(([who, what, st], i) => {
+    const x = (i % 2) * 174;
+    const y = Math.floor(i / 2) * 70;
+    const stroke = st === "bad" ? C.bad : st === "off" ? C.rule : C.brass;
+    r.append(
+      box(x, y, 166, 56, st === "off" ? { "stroke-dasharray": "4 4" } : { stroke }),
+      t(x + 14, y + 24, who, { "font-size": 13.5, fill: st === "off" ? C.muted : C.ink, "font-weight": 500 }),
+      m(x + 14, y + 42, what, { "font-size": 12, fill: st === "bad" ? C.bad : C.ink2 }),
+    );
+  });
+  r.append(
+    path("M83 56 C83 140 150 160 160 196", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }),
+    path("M257 56 C257 100 236 120 222 140 C200 170 190 180 182 196", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }),
+    box(60, 200, 220, 70, { stroke: C.ink2 }),
+    m(170, 228, "pqcVerify", { "text-anchor": "middle", "font-size": 15 }),
+    t(170, 250, "two accepted, the forged one reverts", { "text-anchor": "middle", "font-size": 12, fill: C.muted }),
+    path("M170 270V300", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }),
+    box(60, 304, 220, 70),
+    m(170, 332, "K from s1, s2", { "text-anchor": "middle", "font-size": 14 }),
+    t(170, 354, "H(K) = keyHash", { "text-anchor": "middle", "font-size": 12, fill: C.ok }),
+    path("M170 374V404", { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }),
+    box(60, 408, 220, 70, { stroke: C.brass }),
+    m(170, 436, "openBids", { "text-anchor": "middle", "font-size": 14, fill: C.brass }),
+    t(170, 458, "every bid decrypted on chain", { "text-anchor": "middle", "font-size": 12, fill: C.muted }),
+    m(0, 520, "ReleaseSignatureInvalid", { fill: C.bad, "font-size": 12.5 }),
+    t(0, 540, "what the outsider's release got back", { "font-size": 12, fill: C.muted }),
+  );
+  return fixMarkers(r);
+}
+
+// ---------------------------------------------------------------- the clearing chart
+
+export interface OpenedBid {
+  label: string;
+  quantity: number;
+  price: number;
+  allocated: number;
+}
+
+/**
+ * Demand (the opened bids, highest limit first, as steps of width = quantity)
+ * against the supply line; the price where they meet is drawn across.
+ * Filled steps are what each bid was allocated; the faded rest went unfilled.
+ */
+export function clearingChart(bids: OpenedBid[], supply: number, price: number, unit: { sale: string; quote: string }, phone = false): SVGSVGElement {
+  const W = phone ? 340 : 620;
+  const H = phone ? 300 : 360;
+  const L = phone ? 44 : 56;
+  const R = 24;
+  const T = 30;
+  const B = 48;
+  const sorted = [...bids].sort((a, b) => b.price - a.price);
+  const totalQ = sorted.reduce((sum, b) => sum + b.quantity, 0);
+  const maxQ = Math.max(totalQ, supply) * 1.1;
+  const maxP = Math.ceil(Math.max(...sorted.map((b) => b.price), price) + 0.5);
+  const X = (q: number) => L + (q / maxQ) * (W - L - R);
+  const Y = (p: number) => H - B - (p / maxP) * (H - T - B);
+  const r = s("svg", {
+    viewBox: `0 0 ${W} ${H}`,
+    role: "img",
+    class: `clearing-chart ${phone ? "art-phone" : "art-wide"}`,
+    "aria-label": `Demand of the opened bids against ${supply} ${unit.sale} for sale; they meet at ${price.toFixed(2)} ${unit.quote}.`,
+  }) as SVGSVGElement;
+  for (let p = 0; p <= maxP; p += 1) {
+    r.append(
+      s("line", { x1: L, y1: Y(p), x2: W - R, y2: Y(p), stroke: C.rule, "stroke-width": 1 }),
+      t(L - 10, Y(p) + 4, p.toFixed(2), { "text-anchor": "end", "font-size": 11, "font-family": MONO, fill: C.muted }),
+    );
+  }
+  const step = maxQ > 200 ? 100 : 50;
+  for (let q = 0; q <= maxQ; q += step) r.append(t(X(q), H - B + 20, String(q), { "text-anchor": "middle", "font-size": 11, "font-family": MONO, fill: C.muted }));
+  r.append(t(L, 14, `${unit.quote} per ${unit.sale}`, { "font-size": 11, fill: C.muted }), t(W - R, H - 6, `${unit.sale}, cumulative`, { "text-anchor": "end", "font-size": 11, fill: C.muted }));
+  // Demand as a step line; the allocated part filled lightly, the unfilled part only outlined.
+  let q0 = 0;
+  let d = `M${X(0)} ${Y(0)}`;
+  for (const b of sorted) {
+    const x0 = X(q0);
+    const xa = X(q0 + b.allocated);
+    const x1 = X(q0 + b.quantity);
+    d += ` V${Y(b.price)} H${x1}`;
+    const grp = g({ class: "bar" });
+    grp.append(s("title", {}, `${b.label}: ${b.quantity} ${unit.sale} at most ${b.price.toFixed(2)} ${unit.quote}; allocated ${b.allocated}`));
+    if (b.allocated > 0) grp.append(s("rect", { x: x0 + 1, y: Y(b.price), width: Math.max(0, xa - x0 - 2), height: Y(0) - Y(b.price), fill: C.brass, "fill-opacity": 0.22 }));
+    if (b.allocated < b.quantity) grp.append(s("rect", { x: xa + 1, y: Y(b.price), width: Math.max(0, x1 - xa - 2), height: Y(0) - Y(b.price), fill: "none", stroke: C.brassDim, "stroke-dasharray": "3 3" }));
+    grp.append(m(x0 + 10, Y(b.price) + 20, b.label, { "font-size": 11.5, fill: C.ink }), t(x0 + 10, Y(b.price) + 36, `${b.quantity} at ≤ ${b.price.toFixed(2)}`, { "font-size": 11.5, fill: C.ink2 }));
+    r.append(grp);
+    q0 += b.quantity;
+  }
+  d += ` V${Y(0)}`;
+  r.append(s("path", { d, fill: "none", stroke: C.brass, "stroke-width": 2, "stroke-linejoin": "round", class: "demand" }));
+  r.append(
+    s("line", { x1: X(supply), y1: T, x2: X(supply), y2: Y(0), stroke: C.ink, "stroke-width": 1.25, "stroke-dasharray": "4 4" }),
+    t(X(supply) + 6, T + 10, `${supply} for sale`, { "font-size": 11.5, fill: C.ink }),
+    s("line", { x1: L, y1: Y(price), x2: W - R, y2: Y(price), stroke: C.ink, "stroke-width": 1.25 }),
+    m(L + 10, Y(price) + 20, `clears at ${price.toFixed(2)}`, { "font-size": 12, fill: C.ink, "font-weight": 500 }),
+  );
   return r;
 }
 
-function defs(): SVGElement {
-  const marker = (id: string, color: string) =>
-    s("marker", { id, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, s("path", { d: "M1 1L8 5L1 9", fill: "none", stroke: color, "stroke-width": 1.6, "stroke-linecap": "round", "stroke-linejoin": "round" }));
-  return s("defs", {}, marker("arrow", C.a300), marker("arrow-strong", C.a600));
-}
+// ---------------------------------------------------------------- the problem: one key against a split key
 
-// ---------------------------------------------------------------- the step rail's drawing
+const PROBLEM_LABEL =
+  "Left, the usual recipe: every bid is encrypted to one auction key, so its holder can read all bids at any time, and if the key is lost no bid opens. Right, Peal Sealed Auction: each bid has its own key K, split into three shares held by three members; after closeCommit any two members open it, and no single party can open it early.";
 
-/** Panel rectangles in railArt's coordinates, one per step: x, y, w, h. */
-export const PANELS: [number, number, number, number][] = [
-  [8, 8, 272, 206],
-  [292, 8, 272, 206],
-  [8, 226, 272, 206],
-  [292, 226, 272, 206],
-];
-
-function panelFrame(i: number, title: string): SVGElement {
-  const [x, y, w, hh] = PANELS[i]!;
+function envGlyph(x: number, y: number, color: string): SVGElement {
   return g(
     {},
-    s("rect", { x, y, width: w, height: hh, rx: 14, fill: "#fff", stroke: C.line, class: "panel-frame" }),
-    s("circle", { cx: x + 24, cy: y + 24, r: 11, fill: C.a50 }),
-    text(x + 24, y + 28, String(i + 1), { "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: C.a600 }),
-    text(x + 42, y + 28.5, title, { "font-size": 13, "font-weight": 600, fill: C.ink }),
+    s("path", { d: `M${x} ${y}h28v19h-28zM${x} ${y}l14 9 14-9`, fill: "none", stroke: color, "stroke-width": 1.25, "stroke-linejoin": "round" }),
+    s("rect", { x: x + 11, y: y + 6, width: 6, height: 6, rx: 1, fill: color }),
   );
 }
 
-/** Four panels: seal, commit, release, open and clear. Each is a <g data-step="n">. */
-export function railArt(): SVGSVGElement {
-  const r = svgRoot(
-    572,
-    440,
-    "Four steps. Seal: the bid is encrypted under K and K's three shares are sealed with ML-KEM-1024. Commit: commitBid stores the ciphertext, the hashes and the envelopes and pulls escrow and bond. Release: members 1 and 2 sign with ML-DSA-87 and pqcVerify accepts; an outsider's signature is refused. Open and clear: demand of 60 at 2.50 and 70 at 1.50 meets 100 on offer at 1.50.",
-    "rail-art",
-  );
-  r.prepend(defs());
-
-  // 1. Seal, in the browser.
-  const p1 = g({ "data-step": "1", class: "panel" }, panelFrame(0, "Seal, in your browser"));
-  p1.append(
-    card(24, 50, 104, 46, { fill: C.a50, stroke: C.a200 }),
-    text(36, 70, "bid", { "font-size": 11 }),
-    text(36, 87, "60 @ ≤ 2.50", { "font-size": 12, "font-weight": 600, fill: C.ink, "font-family": MONO }),
-    flow("M128 73H160", { "marker-end": "url(#arrow)" }),
-    card(164, 50, 100, 46),
-    text(176, 70, "ciphertext", { "font-size": 11 }),
-    text(176, 87, "bid ⊕ keccak(K)", { "font-size": 10.5, fill: C.ink, "font-family": MONO }),
-    s("circle", { cx: 76, cy: 140, r: 17, fill: C.a600 }),
-    text(76, 145, "K", { "text-anchor": "middle", "font-size": 14, "font-weight": 600, fill: "#fff" }),
-    flow("M76 96V123"),
-  );
-  p1.append(flow("M93 140C100 140 100 128 112 128H230"));
-  [130, 178, 226].forEach((x, i) => {
-    p1.append(
-      flow(`M${x + 2} 128V140`),
-      s("rect", { x: x - 18, y: 140, width: 40, height: 28, rx: 6, fill: C.a50, stroke: C.a300, "stroke-width": 1.4 }),
-      s("path", { d: `M${x - 17} ${141}L${x + 2} ${153}L${x + 21} ${141}`, fill: "none", stroke: C.a300, "stroke-width": 1.4 }),
-      text(x + 2, 186, `s${i + 1}`, { "text-anchor": "middle", "font-size": 11, "font-family": MONO }),
-    );
+/** One auction key against a split key. Desktop. */
+export function problemArt(): SVGSVGElement {
+  const r = root(1040, 330, PROBLEM_LABEL, "art art-wide problem");
+  // Left: one auction key.
+  r.append(t(0, 16, "The usual recipe: one auction key", { "font-size": 13, fill: C.ink, "font-weight": 500 }), box(0, 32, 490, 260, { fill: "none", stroke: C.rule }));
+  [0, 1, 2].forEach((i) => {
+    const y = 72 + i * 70;
+    r.append(envGlyph(28, y, C.ink2), m(66, y + 14, `bid ${i}`, { fill: C.ink2 }), path(`M110 ${y + 10} C170 ${y + 10} 170 152 214 152`, { stroke: C.bad }));
   });
-  p1.append(text(24, 204, "each share sealed to one member · ML-KEM-1024", { "font-size": 11 }));
+  r.append(
+    s("circle", { cx: 238, cy: 152, r: 22, fill: "none", stroke: C.bad, "stroke-width": 1.5 }),
+    m(238, 157, "K", { "text-anchor": "middle", "font-size": 14, fill: C.bad }),
+    t(238, 196, "one auction key", { "text-anchor": "middle", "font-size": 11.5 }),
+    path("M262 152H318", { stroke: C.bad, "marker-end": "url(#sa-arrow-bad)" }),
+    box(322, 120, 150, 64, { stroke: C.bad }),
+    t(338, 146, "Its holder", { "font-size": 13, fill: C.ink, "font-weight": 500 }),
+    t(338, 164, "reads every bid", { "font-size": 12, fill: C.bad }),
+    t(20, 270, "Early, at any time. One leak exposes all bids; a lost key opens none.", { "font-size": 12, fill: C.ink2 }),
+  );
+  // Right: a split key per bid.
+  const ox = 550;
+  r.append(t(ox, 16, "Peal Sealed Auction: a split key per bid", { "font-size": 13, fill: C.ink, "font-weight": 500 }), box(ox, 32, 490, 260, { fill: "none", stroke: C.rule }));
+  const memY = [86, 152, 218];
+  [0, 1, 2].forEach((i) => {
+    const y = 72 + i * 70;
+    r.append(envGlyph(ox + 22, y, C.brass), s("circle", { cx: ox + 92, cy: y + 10, r: 11, fill: "none", stroke: C.brass, "stroke-width": 1.25 }), m(ox + 92, y + 14, "K", { "text-anchor": "middle", "font-size": 10.5, fill: C.brass }));
+    for (const my of memY) r.append(s("path", { d: `M${ox + 104} ${y + 10} C${ox + 160} ${y + 10} ${ox + 170} ${my} ${ox + 214} ${my}`, fill: "none", stroke: C.brassDim, "stroke-width": 1 }));
+  });
+  memY.forEach((y, i) => {
+    r.append(box(ox + 216, y - 16, 104, 32, i === 2 ? { "stroke-dasharray": "4 4" } : { stroke: C.brassDim }), t(ox + 268, y + 4, `member ${i + 1}`, { "text-anchor": "middle", "font-size": 12, fill: i === 2 ? C.muted : C.ink }));
+    if (i < 2) r.append(path(`M${ox + 320} ${y} C${ox + 350} ${y} ${ox + 350} 152 ${ox + 372} 152`, { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }));
+  });
+  r.append(
+    box(ox + 376, 122, 100, 60, { stroke: C.brass }),
+    t(ox + 426, 146, "any two", { "text-anchor": "middle", "font-size": 12.5, fill: C.ink, "font-weight": 500 }),
+    m(ox + 426, 164, "after close", { "text-anchor": "middle", "font-size": 11, fill: C.ok }),
+    t(ox + 20, 270, "One share reveals nothing. Before closeCommit no release is accepted.", { "font-size": 12, fill: C.ink2 }),
+  );
+  return fixMarkers(r);
+}
 
-  // 2. Commit, on chain.
-  const p2 = g({ "data-step": "2", class: "panel" }, panelFrame(1, "Commit, on chain"));
-  const fields: [string, string][] = [
-    ["ct", "the sealed bid"],
-    ["H(K)", "checks the key later"],
-    ["H(s1) H(s2) H(s3)", "checks every share"],
-    ["3 × 1,752 B", "envelopes, in the event"],
-    ["escrow + bond", "pulled now"],
+/** One auction key against a split key, for a phone. */
+export function problemArtPhone(): SVGSVGElement {
+  const r = root(340, 540, PROBLEM_LABEL, "art art-phone problem");
+  r.append(t(0, 16, "The usual recipe: one auction key", { "font-size": 13.5, fill: C.ink, "font-weight": 500 }), box(0, 30, 340, 200, { fill: "none", stroke: C.rule }));
+  [0, 1, 2].forEach((i) => {
+    const x = 24 + i * 52;
+    r.append(envGlyph(x, 60, C.ink2), path(`M${x + 14} 84 C${x + 14} 110 120 104 150 118`, { stroke: C.bad }));
+  });
+  r.append(
+    s("circle", { cx: 170, cy: 128, r: 18, fill: "none", stroke: C.bad, "stroke-width": 1.5 }),
+    m(170, 133, "K", { "text-anchor": "middle", "font-size": 13, fill: C.bad }),
+    path("M190 128H226", { stroke: C.bad, "marker-end": "url(#sa-arrow-bad)" }),
+    t(232, 124, "its holder", { "font-size": 12.5, fill: C.ink }),
+    t(232, 140, "reads all", { "font-size": 12.5, fill: C.bad }),
+    t(16, 190, "early, at any time; a lost key", { "font-size": 12.5, fill: C.ink2 }),
+    t(16, 208, "opens nothing", { "font-size": 12.5, fill: C.ink2 }),
+  );
+  r.append(t(0, 272, "Peal Sealed Auction: a split key per bid", { "font-size": 13.5, fill: C.ink, "font-weight": 500 }), box(0, 286, 340, 250, { fill: "none", stroke: C.rule }));
+  r.append(envGlyph(24, 312, C.brass), s("circle", { cx: 84, cy: 322, r: 11, fill: "none", stroke: C.brass, "stroke-width": 1.25 }), m(84, 326, "K", { "text-anchor": "middle", "font-size": 10.5, fill: C.brass }), t(104, 326, "each bid has its own key", { "font-size": 12.5 }));
+  [0, 1, 2].forEach((i) => {
+    const x = 16 + i * 106;
+    r.append(
+      s("path", { d: `M84 334 C84 360 ${x + 48} 352 ${x + 48} 378`, fill: "none", stroke: C.brassDim, "stroke-width": 1 }),
+      box(x, 380, 96, 32, i === 2 ? { "stroke-dasharray": "4 4" } : { stroke: C.brassDim }),
+      t(x + 48, 400, `member ${i + 1}`, { "text-anchor": "middle", "font-size": 12, fill: i === 2 ? C.muted : C.ink }),
+    );
+    if (i < 2) r.append(path(`M${x + 48} 412 C${x + 48} 436 170 432 170 452`, { stroke: C.brass, "marker-end": "url(#sa-arrow-brass)" }));
+  });
+  r.append(
+    box(100, 456, 140, 44, { stroke: C.brass }),
+    t(170, 476, "any two", { "text-anchor": "middle", "font-size": 12.5, fill: C.ink }),
+    m(170, 492, "after close", { "text-anchor": "middle", "font-size": 11, fill: C.ok }),
+    t(16, 524, "one share reveals nothing", { "font-size": 12.5, fill: C.ink2 }),
+  );
+  return fixMarkers(r);
+}
+
+// ---------------------------------------------------------------- the timeline: who can read a bid, when
+
+const TIMELINE_LABEL =
+  "The auction's phases on a time line: bids are committed while open; closeCommit freezes them; members release until the release deadline; openBids and finalize decrypt and clear; then claims. Below, who can read a bid in each phase: the bidder always reads its own; one member never; two members, through releases, only after closeCommit; everyone after openBids, when the opened bid is public on chain. This assumes fewer than two members collude.";
+
+/** When can anyone read a bid? Desktop. */
+export function timelineArt(): SVGSVGElement {
+  const r = root(1040, 330, TIMELINE_LABEL, "art art-wide timeline");
+  const L = 190;
+  const xs = [L, 420, 650, 840, 1030]; // phase boundaries
+  const phases: [string, string][] = [
+    ["CommitOpen", "bids arrive sealed"],
+    ["Closed", "members release"],
+    ["opening", "openBids, finalize"],
+    ["Settled", "claims"],
   ];
-  p2.append(card(308, 48, 240, 130, { fill: "#f9fafb" }), text(320, 66, "commitBid stores", { "font-size": 11 }));
-  fields.forEach(([k, v], i) => {
-    const y = 88 + i * 19;
-    p2.append(text(320, y, k, { "font-size": 11.5, "font-family": MONO, fill: C.ink }), text(536, y, v, { "text-anchor": "end", "font-size": 11 }));
+  const calls = ["createAuction", "closeCommit", "releaseDeadline", "finalize", ""];
+  r.append(s("line", { x1: L, y1: 64, x2: 1030, y2: 64, stroke: C.line, "stroke-width": 1.25 }));
+  xs.slice(0, 4).forEach((x, i) => {
+    r.append(s("line", { x1: x, y1: 56, x2: x, y2: 280, stroke: i === 1 ? C.brass : C.rule, "stroke-width": i === 1 ? 1.25 : 1, "stroke-dasharray": i === 1 ? "none" : "2 4" }), m(x + 6, 50, calls[i]!, { "font-size": 11, fill: i === 1 ? C.brass : C.muted }));
   });
-  p2.append(lockGlyph(318, 197, C.a600), text(332, 202, "fixed at commit: no reveal step to skip", { "font-size": 11.5, fill: C.ink2 }));
+  phases.forEach(([name, what], i) => {
+    r.append(m(xs[i]! + 10, 88, name, { "font-size": 12.5 }), t(xs[i]! + 10, 106, what, { "font-size": 11.5, fill: C.muted }));
+  });
+  // Who can read a bid: [label, readable from phase index (or -1 never), note]
+  const rows: [string, number, string][] = [
+    ["The bidder (its own bid)", 0, "always: it sealed it"],
+    ["One committee member", -1, "never: a share is noise"],
+    ["Two members, releasing", 1, "after closeCommit only"],
+    ["Everyone", 2, "after openBids, on chain"],
+  ];
+  r.append(t(0, 136, "Who can read a bid", { "font-size": 12, fill: C.muted }));
+  rows.forEach(([who, from, note], i) => {
+    const y = 148 + i * 32;
+    r.append(t(0, y + 16, who, { "font-size": 12.5, fill: C.ink }));
+    for (let p = 0; p < 4; p++) {
+      const open = from >= 0 && p >= from;
+      r.append(s("rect", { x: xs[p]! + 4, y, width: xs[p + 1]! - xs[p]! - 8, height: 22, rx: 3, fill: open ? C.brass : "none", "fill-opacity": open ? 0.22 : 0, stroke: open ? C.brassDim : C.rule, "stroke-dasharray": open ? "none" : "3 3" }));
+      if (p === Math.max(from, 0)) r.append(t(xs[p]! + 14, y + 15, note, { "font-size": 11.5, fill: open ? C.ink : C.muted }));
+    }
+  });
+  r.append(t(0, 314, "Trust assumption: fewer than two members collude. Two colluding members could combine their shares off chain at any time; the threat model says so.", { "font-size": 11.5, fill: C.ink2 }));
+  return fixMarkers(r);
+}
 
-  // 3. Release, after the close.
-  const p3 = g({ "data-step": "3", class: "panel" }, panelFrame(2, "Release, after the close"));
-  const mrow = (y: number, label: string, sig: string, ok: boolean | null) => {
-    p3.append(
-      card(24, y, 240, 32, ok === null ? { "stroke-dasharray": "4 4", stroke: C.soft } : ok ? {} : { stroke: "#fecaca", fill: C.redWeak }),
-      text(36, y + 20, label, { "font-size": 12, "font-weight": 600, fill: ok === null ? C.muted : C.ink }),
-      text(150, y + 20, sig, { "font-size": 11, "font-family": MONO, fill: ok === false ? C.red : C.muted }),
+/** When can anyone read a bid? For a phone: phases down, readers across. */
+export function timelineArtPhone(): SVGSVGElement {
+  const r = root(340, 480, TIMELINE_LABEL, "art art-phone timeline");
+  const cols = ["bidder", "1 member", "2 releasing", "everyone"];
+  const cx = [150, 198, 246, 300];
+  cols.forEach((c, i) => r.append(t(cx[i]!, 16, c, { "text-anchor": "middle", "font-size": 11, fill: C.muted })));
+  const phases: [string, string, boolean[]][] = [
+    ["CommitOpen", "bids arrive sealed", [true, false, false, false]],
+    ["closeCommit", "the set is frozen", [true, false, true, false]],
+    ["Closed", "members release", [true, false, true, false]],
+    ["openBids", "bids decrypted", [true, false, true, true]],
+    ["Settled", "claims", [true, false, true, true]],
+  ];
+  phases.forEach(([name, what, open], i) => {
+    const y = 40 + i * 80;
+    r.append(
+      s("line", { x1: 0, y1: y, x2: 340, y2: y, stroke: i === 1 ? C.brass : C.rule, "stroke-width": 1 }),
+      m(0, y + 26, name, { "font-size": 12.5, fill: i === 1 ? C.brass : C.ink }),
+      t(0, y + 44, what, { "font-size": 11.5, fill: C.muted }),
     );
-    if (ok) p3.append(check(246, y + 16));
-    if (ok === false) p3.append(s("path", { d: `M${242} ${y + 12}l8 8m0-8l-8 8`, stroke: C.red, "stroke-width": 1.8, "stroke-linecap": "round" }));
-  };
-  mrow(266, "Member 1", "ML-DSA-87", true);
-  mrow(304, "Member 2", "ML-DSA-87", true);
-  mrow(342, "Member 3", "offline", null);
-  mrow(380, "Outsider", "forged", false);
-  p3.append(text(24, 426, "pqcVerify checks each one; a forged release reverts", { "font-size": 11 }));
+    open.forEach((o, j) => r.append(s("rect", { x: cx[j]! - 18, y: y + 16, width: 36, height: 36, rx: 4, fill: o ? C.brass : "none", "fill-opacity": o ? 0.22 : 0, stroke: o ? C.brassDim : C.rule, "stroke-dasharray": o ? "none" : "3 3" }), o ? check(cx[j]!, y + 34) : lockMini(cx[j]!, y + 34)));
+  });
+  r.append(t(0, 448, "Filled: can read the bid. Dashed: sealed to them.", { "font-size": 12, fill: C.ink2 }), t(0, 466, "Assumes fewer than two members collude.", { "font-size": 12, fill: C.muted }));
+  return fixMarkers(r);
+}
 
-  // 4. Open and clear: the testnet demo's demand against the supply.
-  const p4 = g({ "data-step": "4", class: "panel" }, panelFrame(3, "Open and clear"));
-  const ox = 336;
-  const oy = 396;
-  const xw = 200; // 0..130 PEAL-T
-  const yh = 116; // 0..3.00 fUSD
-  const X = (q: number) => ox + (q / 130) * xw;
-  const Y = (p: number) => oy - (p / 3) * yh;
-  p4.append(
-    s("path", { d: `M${ox} ${oy}H${ox + xw + 6}M${ox} ${oy}V${oy - yh - 6}`, stroke: C.line, "stroke-width": 1 }),
-    // demand: 60 at 2.50, then 70 more at 1.50
-    s("rect", { x: X(0), y: Y(2.5), width: X(60) - X(0) - 1, height: oy - Y(2.5), fill: C.a600, rx: 2 }),
-    s("rect", { x: X(60) + 1, y: Y(1.5), width: X(100) - X(60) - 1, height: oy - Y(1.5), fill: C.a600, rx: 2 }),
-    s("rect", { x: X(100) + 1, y: Y(1.5), width: X(130) - X(100) - 1, height: oy - Y(1.5), fill: C.a200, rx: 2 }),
-    s("path", { d: `M${X(100)} ${oy}V${Y(2.9)}`, stroke: C.ink2, "stroke-width": 1.2, "stroke-dasharray": "3 3" }),
-    text(X(100) + 4, Y(2.75), "100 on offer", { "font-size": 11, fill: C.ink2 }),
-    s("path", { d: `M${ox} ${Y(1.5)}H${X(130)}`, stroke: C.ink, "stroke-width": 1.2 }),
-    text(ox - 6, Y(1.5) + 4, "1.50", { "text-anchor": "end", "font-size": 11, "font-weight": 600, fill: C.ink }),
-    text(ox - 6, Y(2.5) + 4, "2.50", { "text-anchor": "end", "font-size": 11 }),
-    text(X(30), Y(2.5) - 6, "60", { "text-anchor": "middle", "font-size": 11, fill: C.ink2 }),
-    text(X(80), Y(1.5) - 6, "40 of 70", { "text-anchor": "middle", "font-size": 11, fill: C.ink2 }),
-    text(308, 422, "every winner pays 1.50 · the testnet run", { "font-size": 11 }),
+function check(cx: number, cy: number): SVGElement {
+  return s("path", { d: `M${cx - 6} ${cy}l4 4 8-9`, fill: "none", stroke: C.brass, "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round" });
+}
+
+function lockMini(cx: number, cy: number): SVGElement {
+  return g(
+    { fill: "none", stroke: C.muted, "stroke-width": 1.25, "stroke-linecap": "round" },
+    s("path", { d: `M${cx - 4} ${cy - 2}v-3a4 4 0 018 0v3` }),
+    s("rect", { x: cx - 6, y: cy - 2, width: 12, height: 9, rx: 1.5 }),
   );
-  r.append(p1, p2, p3, p4);
-  return r;
 }
