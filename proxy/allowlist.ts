@@ -16,6 +16,8 @@ export const ALLOWED_GET = [
   /^\/cosmos\/bank\/v1beta1\/balances\/[a-z0-9]+$/,
   /^\/cosmos\/auth\/v1beta1\/accounts\/[a-z0-9]+$/,
   /^\/qorechain\/pqc\/v1\/evm_window\/[a-z0-9]+$/,
+  // The AMM's pools: a guest short of fUSD for a sale buys it with QOR (client/amm.ts).
+  /^\/qorechain\/amm\/v1\/pools$/,
 ];
 
 export function allowed(method: string, path: string): boolean {

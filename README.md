@@ -30,7 +30,8 @@ The web app opens on a landing page in this product's own identity, the sealed e
 1. **Make a guest account.** *Connect* opens a wallet drawer. A guest account is a fresh testnet key pair made in the browser (secp256k1 and ML-DSA-87, derived by `@qorechain/sdk` from a new 24-word phrase). It lives only in that browser's storage, and it can be backed up and forgotten.
 2. **Fund it** with about 1 QOR from the [QoreChain dashboard faucet](https://dashboard.qorechain.io/faucet), or in one transfer approved in QoreX.
 3. **Get 1,000 PEAL-T** from the demo faucet with one click.
-4. **Seal and commit a bid.** The bid page checks the committee's keys, seals the bid in the browser and sends `approve` and `commitBid` inside one EVM window scoped to the token and the auction. The guest registers its ML-DSA-87 key first, as QoreChain requires. If the account is short of PEAL-T, the faucet claim joins the same window.
+4. **In a fUSD sale, buy fUSD if you are short.** The bid page quotes the testnet AMM and buys with one hybrid transaction: swap QOR for fUSD, convert it to the ERC-20 the auction pulls (`client/amm.ts`).
+5. **Seal and commit a bid.** The bid page checks the committee's keys, seals the bid in the browser and sends `approve` and `commitBid` inside one EVM window scoped to the token and the auction. The guest registers its ML-DSA-87 key first, as QoreChain requires. If the account is short of PEAL-T, the faucet claim joins the same window.
 
 After the close the demo committee releases (`npm run testnet -- settle 0x9A98…c7B4`), and the results page shows every bid opened, the clearing price, and a *Claim my payout* button.
 
@@ -242,6 +243,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `scripts/evidence.ts`, `deployments/evidence.json` | Every recorded transaction and account re-checked through the `qore` CLI |
 | `docs/qorescan/` | The crypto inventory (CycloneDX CBOM) and a draft agility statement, from QoreScan |
 | `.mcp.json` | The QoreChain MCP server (read-only) for coding agents working in this repository |
+| `client/amm.ts` | Buying the quote token on the native AMM: pool quote, swap with a floor, convert to the ERC-20, one transaction |
 | `client/audit.ts` | The independent check: release signatures verified with `@qorechain/pqc`, bids reopened from stored shares |
 | `docs/DEMO.md` | The 3-minute demo, shot by shot |
 | `THREAT_MODEL.md`, `AI_USAGE.md` | Trust model; how AI agents built this and what the human decided |

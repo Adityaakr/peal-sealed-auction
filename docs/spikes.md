@@ -102,6 +102,15 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Do the endpoints negotiate post-quantum TLS? | Yes: both `api-testnet.qore.host` and `evm-testnet.qore.host` answer TLS 1.3 with the hybrid group X25519MLKEM768; their certificates are ECDSA | `npm run cbom` |
 | Does the MCP server start from `.mcp.json`? | Yes: `npx qorechain-mcp --network testnet` answers `initialize` and lists read-only tools (no signing tool) | `test-ts/mcp.test.ts` |
 
+## 2026-11-17, the AMM
+
+| Question | Finding | How |
+|---|---|---|
+| Which pools exist? | Five constant-product pools; pool 2 is fUSD (`erc20:0x9714…63CA`) against `uqor`, about 557 fUSD and 8,149 QOR: 1 fUSD costs about 14.7 QOR. Swap fee 0.30 % of the input, at most 5 % price impact per swap | `GET /qorechain/amm/v1/pools`, `/params` |
+| Could an issuer seed a PEAL-T pool at the clearing price? | No: the erc20 module has `permissionless_registration: false`, so PEAL-T cannot become a bank coin, and a pool costs 100 QOR to create | `GET /cosmos/evm/erc20/v1/params`, AMM params |
+| Can one transaction swap and convert? | Yes: `MsgSwapExactIn` (floor = the amount wanted) then `MsgConvertCoin` of exactly that amount, hybrid-signed together. The ERC-20 balance grew by exactly the amount; any excess stays as the bank coin | bidder1 `3E4AEEBD…6AED` (+0.2 fUSD); the browser guest from the bid page `6EBF2D96…3E72` (+0.1 fUSD, 1.48 QOR at most) |
+| What does the page need from REST? | `/qorechain/amm/v1/pools`, now in `proxy/allowlist.ts` and `vercel.json` | `npm run web:preview` |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

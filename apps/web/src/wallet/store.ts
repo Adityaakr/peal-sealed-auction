@@ -88,3 +88,33 @@ export async function act(title: string, calls: guest.Call[], after?: () => void
     await refreshGuest();
   }
 }
+
+/**
+ * Buy `want` of a fest token (the ERC-20 `erc20`) on the AMM with the guest's QOR,
+ * converted to the ERC-20 in the same transaction. Same drawer logging as `act`.
+ */
+export async function buyOnAmm(title: string, erc20: `0x${string}`, want: bigint): Promise<string | undefined> {
+  if (!state.guest) {
+    state.error = "Create a guest account (or import one) to do this.";
+    openPanel();
+    emit();
+    return undefined;
+  }
+  if (state.busy) return undefined;
+  state.busy = title;
+  state.error = undefined;
+  state.log = [];
+  emit();
+  openPanel();
+  try {
+    const { tx } = await guest.buyOnAmm(state.guest, erc20, want, log);
+    log(`${title}: done.`);
+    return tx;
+  } catch (e) {
+    state.error = e instanceof Error ? e.message.split("\n")[0] : String(e);
+    return undefined;
+  } finally {
+    state.busy = undefined;
+    await refreshGuest();
+  }
+}

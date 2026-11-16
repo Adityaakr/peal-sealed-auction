@@ -173,13 +173,18 @@ export function funded(st: GuestStatus): boolean {
 
 // ---------------------------------------------------------------- native (hybrid-signed) transactions
 
-async function broadcast(acc: UnifiedAccount, messages: { typeUrl: string; value: unknown }[], mode: "hybrid" | "classical" = "hybrid") {
+async function broadcast(
+  acc: UnifiedAccount,
+  messages: { typeUrl: string; value: unknown }[],
+  mode: "hybrid" | "classical" = "hybrid",
+  registry?: import("@cosmjs/proto-signing").Registry,
+) {
   const n = need();
   const s = await sdk();
   const { StargateClient } = await import("@cosmjs/stargate");
   const a = await getJson<{ account?: Record<string, unknown> }>(`/cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
   const base = (a?.account?.base_account ?? a?.account ?? {}) as Record<string, string>;
-  const signer = new s.EthNativeSigner(acc, { signMode: mode, rest: n.rest });
+  const signer = new s.EthNativeSigner(acc, { signMode: mode, rest: n.rest, ...(registry ? { registry } : {}) });
   const transport = await StargateClient.connect(n.cometRpc);
   try {
     const res = await signer.signAndBroadcast(transport, {
@@ -212,6 +217,28 @@ export async function registerKey(acc: UnifiedAccount, log: Log): Promise<void> 
   const msg = s.buildRegisterPqcKeyMsg(acc.cosmos, { pqcKeypair: acc.pqc, proofOfPossession: proof });
   const tx = await broadcast(acc, [msg], "classical");
   log(`Key registered (tx ${tx.slice(0, 10)}…).`);
+}
+
+/**
+ * Buy `want` fUSD on the testnet AMM with QOR and convert it to the ERC-20 the
+ * auction pulls, in one hybrid-signed transaction (`client/amm.ts`). Returns the
+ * quote it used and the transaction hash.
+ */
+export async function buyOnAmm(acc: UnifiedAccount, erc20: Address, want: bigint, log: Log): Promise<{ amountIn: bigint; tx: string }> {
+  const n = need();
+  if (n.local) throw new Error("The local chain has no AMM.");
+  await registerKey(acc, log);
+  const amm = await import("../../../../client/amm.ts");
+  const denom = amm.bankDenomOf(erc20);
+  const pool = amm.findPool(await amm.fetchPools(n.rest), "uqor", denom);
+  if (!pool) throw new Error("No QOR pool for this token on the testnet AMM.");
+  const q = amm.quoteBuy(pool, "uqor", denom, want);
+  const st = await status(acc);
+  if (st.qor < q.amountIn + 400_000n) throw new Error(`Buying needs about ${Number(q.amountIn + 400_000n) / 1e6} QOR; this account holds ${Number(st.qor) / 1e6}.`);
+  log(`Buying on the AMM (pool ${pool.id}): at most ${Number(q.amountIn) / 1e6} QOR in, swap and convert in one transaction…`);
+  const tx = await broadcast(acc, amm.buyMessages(acc.cosmos, acc.evm as Address, q), "hybrid", amm.ammRegistry());
+  log(`Bought and converted (tx ${tx.slice(0, 10)}…).`);
+  return { amountIn: q.amountIn, tx };
 }
 
 // ---------------------------------------------------------------- EVM, inside a scoped window

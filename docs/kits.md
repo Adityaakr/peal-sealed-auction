@@ -43,7 +43,7 @@ Addresses below are `qor1` forms of this project's throwaway testnet accounts (s
 | Solidity PQC key status | yes | the registry reads every member's key with `pqcKeyStatus`; releases read it too | same |
 | QoreSeal and the encryption key registry | yes | `MsgRegisterKEMKey` by each committee member | committee1, 2, 3 |
 | Test tokens fUSD, fETH, fBTC | yes | fUSD from the faucet, converted with `MsgConvertCoin`, used as the quote token | deployer, bidder1 |
-| AMM pools | follow-up PR | a bidder short of fUSD for a sale buys it on the testnet AMM (`msg.amm.swapExactIn`) before sealing | bidder1 |
+| AMM pools | yes | **A guest can raise the escrow for a fUSD sale.** A browser guest holds QOR, and the fest's fUSD faucet pays only dashboard-registered accounts. So the bid page offers "Buy fUSD on the AMM": a quote from pool 2's reserves, then one hybrid transaction that swaps (`MsgSwapExactIn`, floor = the amount) and converts that amount to the ERC-20 the auction pulls (`MsgConvertCoin`). Also `npm run testnet -- fusd buy` | bidder1 (`3E4AEEBD…6AED`); the browser guest from the bid page (`6EBF2D96…3E72`); `deployments/amm-buy.json` |
 | Smart accounts and spending rules | follow-up PR | with the wallet adapter (above): a MetaMask key linked to the bidder's account under a spending rule that allows only this auction and its token | bidder1 |
 | Asset Kit | evaluating | see the kit | |
 | MCP server or qore CLI | yes | read-only by design, so nothing new lands on chain; it checks every recorded transaction and account (`npm run evidence`) | all listed |

@@ -32,6 +32,7 @@ import {
 } from "./common.ts";
 import { amount, duration, h, icon } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
+import { buyOnAmm } from "./wallet/store.ts";
 
 const faucetAbi = parseAbi(["function claim(uint256 amount)", "function claimableBy(address who) view returns (uint256 amount, uint64 availableAt)"]);
 
@@ -101,6 +102,36 @@ async function main(): Promise<void> {
     { guest: true, role: "the bidder" },
   );
   app.querySelector(".card.account")?.append(balLine);
+
+  // A guest bidding in a fUSD sale on the testnet can buy fUSD with its QOR on the AMM (client/amm.ts).
+  if (cfg.network === "testnet" && s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase()) {
+    const amt = el("input", { class: "input", id: "amm-amount", value: "1", "aria-label": `${quoteSym} to buy`, style: "width:80px" }) as HTMLInputElement;
+    const quoteLine = el("span", { class: "small muted", id: "amm-quote" });
+    const buy = el("button", { class: "btn btn-small secondary", id: "amm-buy" }, `Buy ${quoteSym} on the AMM`) as HTMLButtonElement;
+    const requote = async () => {
+      try {
+        const amm = await import("../../../client/amm.ts");
+        const denom = amm.bankDenomOf(s.cfg.quoteToken);
+        const pool = amm.findPool(await amm.fetchPools(cfg.rest), "uqor", denom);
+        if (!pool) return void (quoteLine.textContent = "No QOR pool for this token on the AMM.");
+        const q = amm.quoteBuy(pool, "uqor", denom, parseUnits(amt.value || "0", quoteDec));
+        quoteLine.textContent = `≈ ${fmt(q.amountIn, 6)} QOR at most (pool ${pool.id}, 0.30 % fee, 1 % room), swapped and converted in one transaction`;
+      } catch (e) {
+        quoteLine.textContent = e instanceof Error ? e.message : String(e);
+      }
+    };
+    amt.oninput = () => void requote();
+    buy.onclick = () =>
+      guard(buy, async () => {
+        if (actor?.kind !== "guest") throw new Error("the AMM step is for the guest account; a dev account uses npm run testnet -- fusd buy");
+        const tx = await buyOnAmm(`Buy ${amt.value} ${quoteSym} on the AMM`, s.cfg.quoteToken, parseUnits(amt.value || "0", quoteDec));
+        if (!tx) throw new Error("the AMM buy did not complete; see the wallet drawer");
+        logLine(`bought ${amt.value} ${quoteSym} on the AMM, tx ${short(tx)}`, "ok");
+        await showBalance();
+      });
+    app.querySelector(".card.account")?.append(el("div", { class: "row amm-row" }, el("span", { class: "small" }, `Short of ${quoteSym}? `), amt, buy, quoteLine));
+    void requote();
+  }
 
   // Step 1: the committee check.
   let recipients: SealRecipient[] | undefined;
@@ -185,7 +216,10 @@ async function main(): Promise<void> {
           actor.kind === "guest" && cfg.faucet && s.cfg.quoteToken.toLowerCase() === cfg.pealt.toLowerCase()
             ? ((await client.readContract({ address: cfg.faucet, abi: faucetAbi, functionName: "claimableBy", args: [actor.address] })) as [bigint, bigint])[0]
             : 0n;
-        if (bal + canClaim < needed) throw new Error(`needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}`);
+        if (bal + canClaim < needed)
+          throw new Error(
+            `needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}${s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase() && cfg.network === "testnet" ? `: buy the ${fmt(needed - bal, quoteDec)} ${quoteSym} shortfall on the AMM above` : ""}`,
+          );
         calls.push({ to: cfg.faucet!, data: encodeFunctionData({ abi: faucetAbi, functionName: "claim", args: [canClaim] }), label: `Claim ${amount(canClaim, quoteDec)} ${quoteSym} from the demo faucet` });
         logLine(`not enough ${quoteSym}: the faucet claim joins the same window`, "info");
       }
