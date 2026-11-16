@@ -80,32 +80,23 @@ export function icon(name: keyof typeof PATHS | string): SVGSVGElement {
 
 // ---------------------------------------------------------------- the Peal family marks
 
-export type Product = "tender" | "auction" | "bidder";
+export type Product = "peal" | "tender" | "auction" | "bidder";
 
 /**
- * The three Peal marks (docs/design.md, Marks): a ring r 11 in the accent, and
- * inside it Tender's 2-of-3 dots, Sealed Auction's sealed bar, or Bidder's dot and arrow.
+ * The Peal family marks, used as drawn: the masters come from docs/brand/ in
+ * Adityaakr/peal-tender (copied unaltered into public/brand/). Each sits beside
+ * its name, so the image is decorative. `ground` picks the version drawn for a
+ * light or a dark background.
  */
-export function mark(product: Product = "auction", cls = "mark"): SVGSVGElement {
-  const blue = "#2563eb";
-  const svg = s("svg", { viewBox: "0 0 26 26", class: cls, "aria-hidden": "true" }) as SVGSVGElement;
-  svg.append(s("circle", { cx: 13, cy: 13, r: 11, fill: "none", stroke: blue, "stroke-width": 2 }));
-  if (product === "auction") {
-    svg.append(s("path", { d: "M7 13H19", stroke: blue, "stroke-width": 2, "stroke-linecap": "round" }));
-    svg.append(s("rect", { x: 10, y: 10, width: 6, height: 6, rx: 1, fill: blue }));
-  } else if (product === "tender") {
-    for (const [cx, cy, on] of [
-      [13, 7.5, true],
-      [8.2, 16, true],
-      [17.8, 16, false],
-    ] as const) {
-      svg.append(s("circle", { cx, cy, r: 2.6, fill: on ? blue : "#fff", stroke: blue, "stroke-width": 1.6 }));
-    }
-  } else {
-    svg.append(s("circle", { cx: 9, cy: 13, r: 2.6, fill: blue }));
-    svg.append(s("path", { d: "M12 13H19M16 10l3 3-3 3", fill: "none", stroke: blue, "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
-  }
-  return svg;
+export function mark(product: Product = "auction", cls = "mark", ground: "light" | "dark" = "light"): HTMLImageElement {
+  const img = document.createElement("img");
+  img.src = `/brand/${product}/${ground === "dark" ? "mark-dark" : "mark"}.svg`;
+  img.alt = "";
+  img.className = cls;
+  img.width = 24;
+  img.height = 24;
+  img.decoding = "async";
+  return img;
 }
 
 export const FAMILY: { id: Product; name: string; role: string; line: string; href: string }[] = [
