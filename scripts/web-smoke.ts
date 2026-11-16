@@ -85,15 +85,15 @@ async function visitor(browser: Browser, base: string): Promise<void> {
   page.on("dialog", (d) => void d.accept());
   await page.goto(`${base}/`);
   const title = (await page.textContent("h1")) ?? "";
-  if (!title.includes("no one can open early")) throw new Error(`unexpected headline: ${title}`);
+  if (!title.includes("two of three keys")) throw new Error(`unexpected headline: ${title}`);
   await page.waitForFunction(() => document.querySelector("#pf-auctions")?.textContent === "2", null, { timeout: 60_000 });
   await page.waitForFunction(() => (document.querySelector("#pf-demo")?.textContent ?? "").includes("d"), null, { timeout: 60_000 });
-  // The step rail: choosing step 3 highlights panel 3 of the drawing.
-  await page.click("#step-3");
-  const lit = await page.$$eval(".rail-figure g.panel", (gs) => gs.map((g) => !g.classList.contains("is-dim")));
-  if (lit.join() !== "false,false,true,false") throw new Error(`step rail highlight is ${lit.join()}`);
+  // The vault shows the demo auction's 20 slots; the reveal shows the testnet run's clearing price.
+  await page.waitForFunction(() => document.querySelectorAll("#vault-slots .sa-slot").length === 20, null, { timeout: 30_000 });
+  await page.locator("#reveal").scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => document.querySelector("#reveal-price")?.textContent === "1.50", null, { timeout: 60_000 });
   await shot(page, "0-landing-1280.png");
-  console.log("  ok  landing page: headline, live proof bar, step rail drives the drawing");
+  console.log("  ok  landing page: headline, live figures, the vault's slots, the reveal's clearing price");
 
   // The wallet drawer: make, fund and use a guest account.
   await page.click("#hero-try");

@@ -25,7 +25,7 @@ As a result:
 
 ## Try it in your browser
 
-The web app opens on a landing page that explains the mechanism with a drawing of the real protocol, live figures read from the chain, and the testnet evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`: 50 fUSD for PEAL-T, bidding until 23 November 2026 15:28 UTC):
+The web app opens on a landing page in this product's own identity, the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)). It shows the open demo auction's sealed slots with their real ciphertexts. Six diagrams answer a visitor's questions in order: the problem, how a bid is sealed, when a bid can be read, why no one opens it early, the live reveal of the testnet run, and the category's requirements with their evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`: 50 fUSD for PEAL-T, bidding until 23 November 2026 15:28 UTC):
 
 1. **Make a guest account.** *Connect* opens a wallet drawer. A guest account is a fresh testnet key pair made in the browser (secp256k1 and ML-DSA-87, derived by `@qorechain/sdk` from a new 24-word phrase). It lives only in that browser's storage, and it can be backed up and forgotten.
 2. **Fund it** with about 1 QOR from the [QoreChain dashboard faucet](https://dashboard.qorechain.io/faucet), or in one transfer approved in QoreX.
@@ -227,6 +227,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `client/` | TypeScript client: committee discovery and checks, bid sealing, share opening, release signing, chunked log reads, ABIs |
 | `apps/web/` | Landing page, and the auctions, issuer, bidder, committee and results pages (Vite, plain TypeScript, the shared Peal design language) |
 | `apps/web/src/wallet/` | The wallet drawer: guest account, QoreX, MetaMask |
+| `apps/web/DESIGN.md`, `apps/web/src/landing*` | The landing page's identity and its diagrams |
 | `vercel.json`, `scripts/web-preview.ts` | Hosting on Vercel, and a local preview with the same headers and rewrites |
 | `apps/committee/` | The member step and the member daemon |
 | `proxy/` | Read-only, allowlisted GET proxy for the PQC REST routes (the public REST endpoint sends no CORS headers) |
@@ -254,7 +255,7 @@ The design and the clearing rules come from the author's own earlier project, **
 | `DemoFaucet` | `contracts/src/auctionkit/DemoFaucet.sol` |
 | Design rules: exclude and never fail; one all-or-nothing signed release per member over the frozen set; bind every seal to its context; release on chain state, not a clock; junk costs a deposit | `docs/plans/017-peal-redesign.md`, section 4 |
 
-**The look.** The web app and its landing page follow the shared design language of the three Peal entries, written down in Peal Tender's [`docs/design.md`](https://github.com/Adityaakr/peal-tender/blob/main/docs/design.md): the design language of Peal, re-stated as rules (sky wash, white surfaces, one blue accent, Satoshi and Josefin Sans, sentence case), with Peal credited. Peal's interface code was not read or copied. The shared tokens and components (`styles.css`), the UI helpers and the wallet modules are copied from Peal Tender's `apps/dashboard` (the reference implementation, written during the fest) with a note at the top of each file; the landing page, its illustrations and the app pages are this repository's own.
+**The look.** The three Peal entries share a family layer, written down in Peal Tender's [`docs/design.md`](https://github.com/Adityaakr/peal-tender/blob/main/docs/design.md): the wordmark and marks, the family line in the footer, voice, evidence and accessibility rules. The design language started from Peal; Peal's interface code was not read or copied. Each product has its own identity on top of that layer: this one is the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)), written fresh here. The app pages' tokens and components (`styles.css`), the UI helpers and the wallet modules are copied from Peal Tender's `apps/dashboard`, with a note at the top of each file.
 
 **New here:** the whole sealing layer:
 - ML-KEM-1024 share envelopes to registered recipient keys;

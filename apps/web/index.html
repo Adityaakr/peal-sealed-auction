@@ -6,18 +6,17 @@
     <title>Peal Sealed Auction</title>
     <meta name="description" content="Sealed bids on QoreChain that no single key holder can open before the close: each bid's key is split two of three across a committee, sealed with ML-KEM-1024, and released with ML-DSA-87 signatures the contract checks itself." />
     <meta property="og:title" content="Peal Sealed Auction" />
-    <meta property="og:description" content="Sealed bids that no one can open early. Post-quantum, two of three, on QoreChain." />
-    <meta name="theme-color" content="#dcebfa" />
+    <meta property="og:description" content="Every bid stays sealed until two of three committee keys meet. Post-quantum, on QoreChain." />
+    <meta name="theme-color" content="#0e1016" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://api.fontshare.com" />
-    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Martian+Mono:wdth,wght@75..112.5,300..500&display=swap" />
     <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/landing.css" />
   </head>
   <body class="landing">
-    <a class="skip" href="#how">Skip to how it works</a>
+    <a class="skip" href="#anatomy">Skip to the anatomy of a sealed bid</a>
     <div id="app"></div>
     <noscript>Peal Sealed Auction reads the chain with JavaScript. The code and the whole protocol are at https://github.com/Adityaakr/peal-sealed-auction.</noscript>
     <script type="module" src="./src/landing.ts"></script>
