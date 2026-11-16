@@ -50,7 +50,7 @@ export const PQC_VERIFY = "0x0000000000000000000000000000000000000a01" as Addres
 export const PQC_KEY_STATUS = "0x0000000000000000000000000000000000000a02" as Address;
 
 /** The pages' config for a local stack (throwaway mnemonics: never commit the written file). */
-export function localWebConfig(s: Stack, auction: Address) {
+export function localWebConfig(s: Stack, auction: Address, demoAuction?: Address) {
   return {
     network: "local",
     chainId: Number(s.chainId),
@@ -61,8 +61,10 @@ export function localWebConfig(s: Stack, auction: Address) {
     factory: s.factory,
     fusd: s.fusd,
     pealt: s.pealt,
+    faucet: s.faucet,
     committeeSetId: s.setId,
     auction,
+    ...(demoAuction ? { demoAuction } : {}),
     devAccounts: [
       ...s.bidders.map((b) => ({ label: `${b.name} (bidder) ${b.address}`, mnemonic: b.acc.mnemonic! })),
       ...s.members.map((m, i) => ({ label: `member ${i + 1} ${m.address}`, mnemonic: m.acc.mnemonic! })),
@@ -74,9 +76,9 @@ export function localWebConfig(s: Stack, auction: Address) {
 export const LOCAL_WEB_CONFIG = join(ROOT, "apps", "web", "public", "config.local.json");
 
 /** Write the pages' local config (the public/ directory is not in git until a testnet config lands). */
-export function writeLocalWebConfig(s: Stack, auction: Address): string {
+export function writeLocalWebConfig(s: Stack, auction: Address, demoAuction?: Address): string {
   mkdirSync(dirname(LOCAL_WEB_CONFIG), { recursive: true });
-  writeFileSync(LOCAL_WEB_CONFIG, JSON.stringify(localWebConfig(s, auction), null, 2));
+  writeFileSync(LOCAL_WEB_CONFIG, JSON.stringify(localWebConfig(s, auction, demoAuction), null, 2));
   return LOCAL_WEB_CONFIG;
 }
 
@@ -98,6 +100,8 @@ export interface AuctionOptions {
   commitSeconds?: bigint;
   releaseSeconds?: bigint;
   bidBond?: bigint;
+  /** "sale" (default): PEAL-T for fUSD. "buyback": fUSD for PEAL-T, which visitors get from the faucet. */
+  kind?: "sale" | "buyback";
 }
 
 export interface Stack {
@@ -115,6 +119,8 @@ export interface Stack {
   factory: Address;
   fusd: Address;
   pealt: Address;
+  /** PEAL-T demo faucet (1,000 per address per day), as on the testnet. */
+  faucet: Address;
   setId: Hex;
   erc20: Abi;
   gasUsed: Map<string, bigint[]>;
@@ -234,7 +240,8 @@ export async function startStack(opts: { port?: number; restPort?: number; log?:
     const mock = artifact("MockERC20.sol", "MockERC20");
     const fusd = await deploy(deployer, mock, ["FestUSD (local)", "fUSD", 6]);
     const pealt = await deploy(deployer, artifact("PealT.sol", "PealT"), [issuer.address, parseUnits("1000000", 18)]);
-    log(`registry ${registry}\nfactory  ${factory}\nfUSD     ${fusd}\nPEAL-T   ${pealt}`);
+    const faucet = await deploy(deployer, artifact("DemoFaucet.sol", "DemoFaucet"), [pealt, parseUnits("1000", 18), 86_400n]);
+    log(`registry ${registry}\nfactory  ${factory}\nfUSD     ${fusd}\nPEAL-T   ${pealt}\nfaucet   ${faucet}`);
 
     // Committee keys, cards and joins.
     const seal = new Map<Address, SealKeyPair>();
@@ -319,18 +326,21 @@ export async function startStack(opts: { port?: number; restPort?: number; log?:
     log(`committee 2-of-3 registered: ${setId}`);
 
     const erc20 = mock.abi;
+    await call(issuer, pealt, erc20, "transfer", [faucet, parseUnits("100000", 18)]);
     const createAuction = async (o: AuctionOptions = {}): Promise<Address> => {
       const now = (await client.getBlock()).timestamp;
       const name = o.name ?? "Local demo";
-      const details = o.details ?? "PEAL-T for fUSD";
+      const buyback = o.kind === "buyback";
+      const details = o.details ?? (buyback ? "fUSD for PEAL-T" : "PEAL-T for fUSD");
       const cfg = {
         issuer: issuer.address,
-        saleToken: pealt,
-        quoteToken: fusd,
-        totalSupply: o.supply ?? parseUnits("100", 18),
-        saleDecimals: 18,
-        reservePrice: 1_000_000n,
-        tickSize: 500_000n,
+        saleToken: buyback ? fusd : pealt,
+        quoteToken: buyback ? pealt : fusd,
+        totalSupply: o.supply ?? (buyback ? parseUnits("50", 6) : parseUnits("100", 18)),
+        saleDecimals: buyback ? 6 : 18,
+        // Price per whole sale token, in quote base units: 1.00 + 0.50 steps (fUSD), or 0.50 + 0.25 steps (PEAL-T).
+        reservePrice: buyback ? parseUnits("0.5", 18) : 1_000_000n,
+        tickSize: buyback ? parseUnits("0.25", 18) : 500_000n,
         numTicks: 8,
         startTime: now,
         endTime: now + (o.commitSeconds ?? 3600n),
@@ -338,7 +348,7 @@ export async function startStack(opts: { port?: number; restPort?: number; log?:
         minBidQuantity: 1n,
         maxQuantityPerAddress: 0n,
         maxBids: 64,
-        bidBond: o.bidBond ?? 5_000_000n,
+        bidBond: o.bidBond ?? (buyback ? parseUnits("1", 18) : 5_000_000n),
         protocolFeeBps: 0,
         feeRecipient: "0x0000000000000000000000000000000000000000" as Address,
         committeeSetId: setId,
@@ -349,7 +359,8 @@ export async function startStack(opts: { port?: number; restPort?: number; log?:
           args: [name, details],
         })) as Hex,
       };
-      await call(issuer, pealt, erc20, "approve", [factory, cfg.totalSupply]);
+      if (buyback) await call(deployer, fusd, erc20, "mint", [issuer.address, cfg.totalSupply]);
+      await call(issuer, cfg.saleToken, erc20, "approve", [factory, cfg.totalSupply]);
       const sim = await client.simulateContract({
         account: issuer.address,
         address: factory,
@@ -382,6 +393,7 @@ export async function startStack(opts: { port?: number; restPort?: number; log?:
       factory,
       fusd,
       pealt,
+      faucet,
       setId,
       erc20,
       gasUsed,

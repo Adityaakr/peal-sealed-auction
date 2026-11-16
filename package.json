@@ -19,7 +19,8 @@
     "web:build": "vite build --config apps/web/vite.config.ts",
     "proxy": "tsx proxy/server.ts",
     "web:smoke": "forge build && tsx scripts/web-smoke.ts",
-    "testnet": "tsx scripts/testnet/cli.ts"
+    "testnet": "tsx scripts/testnet/cli.ts",
+    "web:preview": "tsx scripts/web-preview.ts"
   },
   "dependencies": {
     "@cosmjs/stargate": "0.39.0",
@@ -28,6 +29,7 @@
     "@qorechain/qoreseal": "0.1.0",
     "@qorechain/qoresign": "0.2.0",
     "@qorechain/sdk": "0.14.0",
+    "cosmjs-types": "0.11.0",
     "qore-pq-kit": "github:Adityaakr/qore-pq-kit#v0.1.0",
     "viem": "2.21.0"
   },

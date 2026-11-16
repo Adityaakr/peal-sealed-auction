@@ -9,12 +9,17 @@
  * shares in the browser and sign their releases there with ML-DSA-87, and the
  * contract opens the bids and settles. Member 3 stays offline.
  *
+ * First, in a fresh browser context, a visitor's path: the landing page renders
+ * with live figures and no sideways scroll at phone width, then a guest account
+ * is made in the wallet drawer, funded, takes PEAL-T from the demo faucet and
+ * seals a bid into the open demo buyback, which the results page shows as theirs.
+ *
  * Browser: PW_CHROMIUM (an executable path) or Playwright's installed
  * headless shell (`npx playwright-core install --only-shell chromium`).
  * Screenshots go to SHOTS_DIR when it is set.
  */
 import { join } from "node:path";
-import { chromium, type Page } from "playwright-core";
+import { chromium, type Browser, type Page } from "playwright-core";
 import { parseUnits } from "viem";
 import { createServer } from "vite";
 import { startStack, writeLocalWebConfig } from "./local/stack.ts";
@@ -29,16 +34,18 @@ try {
   const auction = await s.createAuction();
   for (const b of s.bidders) await s.mintFusd(b.address, parseUnits("1000", 6));
   await s.mintFusd(s.issuer.address, parseUnits("1000", 6)); // for a buyback (D2)
-  writeLocalWebConfig(s, auction);
+  const demo = await s.createAuction({ name: "Open demo", kind: "buyback", commitSeconds: 7n * 86_400n });
+  writeLocalWebConfig(s, auction, demo);
   await vite.listen();
   const base = vite.resolvedUrls!.local[0]!.replace(/\/$/, "");
 
   const browser = await chromium.launch({ headless: true, ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}) });
-  const page = await browser.newPage({ viewport: { width: 1100, height: 1400 } });
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
   try {
-    await drive(page, base);
+    await visitor(browser, base);
+    const page = await browser.newPage({ viewport: { width: 1100, height: 1400 } });
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await drive(page, base, auction);
     if (errors.length) throw new Error(`page errors: ${errors.join(" | ")}`);
     console.log("web smoke run passed");
   } finally {
@@ -53,7 +60,78 @@ try {
 }
 process.exit(failed ? 1 : 0);
 
-async function drive(page: Page, base: string): Promise<void> {
+/** The landing page and a visitor's guest account, in their own browser context. */
+async function visitor(browser: Browser, base: string): Promise<void> {
+  const errors: string[] = [];
+  const shot = async (page: Page, name: string) => {
+    if (shots) await page.screenshot({ path: join(shots, name), fullPage: true });
+  };
+
+  // Phone width: everything fits, nothing scrolls sideways.
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true });
+  const p = await phone.newPage();
+  p.on("pageerror", (e) => errors.push(String(e)));
+  await p.goto(`${base}/`);
+  await p.waitForFunction(() => /^\d+$/.test(document.querySelector("#pf-auctions")?.textContent ?? ""), null, { timeout: 60_000 });
+  const overflow = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (overflow > 0) throw new Error(`landing page scrolls sideways by ${overflow}px at 390px`);
+  await shot(p, "0-landing-390.png");
+  await phone.close();
+  console.log("  ok  landing page at 390px: live figures, no sideways scroll");
+
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("dialog", (d) => void d.accept());
+  await page.goto(`${base}/`);
+  const title = (await page.textContent("h1")) ?? "";
+  if (!title.includes("no one can open early")) throw new Error(`unexpected headline: ${title}`);
+  await page.waitForFunction(() => document.querySelector("#pf-auctions")?.textContent === "2", null, { timeout: 60_000 });
+  await page.waitForFunction(() => (document.querySelector("#pf-demo")?.textContent ?? "").includes("d"), null, { timeout: 60_000 });
+  // The step rail: choosing step 3 highlights panel 3 of the drawing.
+  await page.click("#step-3");
+  const lit = await page.$$eval(".rail-figure g.panel", (gs) => gs.map((g) => !g.classList.contains("is-dim")));
+  if (lit.join() !== "false,false,true,false") throw new Error(`step rail highlight is ${lit.join()}`);
+  await shot(page, "0-landing-1280.png");
+  console.log("  ok  landing page: headline, live proof bar, step rail drives the drawing");
+
+  // The wallet drawer: make, fund and use a guest account.
+  await page.click("#hero-try");
+  await page.waitForSelector("body.wallet-open #guest-create");
+  await page.click("#guest-create");
+  await page.waitForSelector("#guest-qor", { timeout: 60_000 });
+  await page.click("#guest-fund-local");
+  await page.waitForFunction(() => (document.querySelector("#guest-qor")?.textContent ?? "").startsWith("10 "), null, { timeout: 60_000 });
+  await page.click("#guest-get-pealt");
+  await page.waitForFunction(() => document.querySelector("#guest-pealt")?.textContent === "1,000", null, { timeout: 120_000 });
+  const guest = (await page.getAttribute(".wallet .hash", "title"))?.split(" ")[0] ?? "";
+  console.log(`  ok  guest account ${guest} made in the browser, funded, 1,000 PEAL-T from the faucet`);
+
+  // Bid in the open demo auction with it (the bid page picks the demo auction by default).
+  await page.goto(`${base}/bidder.html`);
+  await page.waitForSelector("#use-guest", { timeout: 60_000 });
+  await page.click("#use-guest");
+  await page.waitForFunction((g) => document.querySelector("#who")?.textContent === g, guest, { timeout: 30_000 });
+  await page.click("#check-committee");
+  await page.waitForFunction(() => document.querySelectorAll("#committee .ok").length === 3, null, { timeout: 60_000 });
+  await page.fill("#qty", "10");
+  await page.selectOption("#tick", "2");
+  await page.click("#seal-commit");
+  await page.waitForFunction(() => [...document.querySelectorAll("#log .line")].some((l) => l.textContent?.includes("bid committed") || l.classList.contains("bad")), null, { timeout: 120_000 });
+  const bad = await page.$$eval("#log .line.bad, #wallet-error", (ls) => ls.map((l) => l.textContent));
+  if (bad.length) throw new Error(`bid page reported: ${bad.join(" | ")}`);
+  await shot(page, "0-guest-bid.png");
+  await page.goto(`${base}/results.html`);
+  await page.waitForSelector("#use-guest", { timeout: 60_000 });
+  await page.click("#use-guest");
+  await page.waitForFunction(() => document.querySelectorAll("#bids tr.mine").length === 1, null, { timeout: 60_000 });
+  console.log("  ok  the guest sealed a bid into the demo buyback; the results page shows it as theirs, still sealed");
+  await ctx.close();
+  if (errors.length) throw new Error(`page errors: ${errors.join(" | ")}`);
+}
+
+async function drive(page: Page, base: string, auction: string): Promise<void> {
+  const q = `?auction=${auction}`;
   const useAccount = async (i: number) => {
     await page.waitForSelector("#acct");
     await page.selectOption("#acct", { index: i });
@@ -94,7 +172,7 @@ async function drive(page: Page, base: string): Promise<void> {
     [2, "100", "0"],
   ];
   for (const [acct, qty, tick] of bids) {
-    await page.goto(`${base}/bidder.html`);
+    await page.goto(`${base}/bidder.html${q}`);
     await useAccount(acct);
     await page.click("#check-committee");
     await page.waitForFunction(() => document.querySelectorAll("#committee .ok").length === 3, null, { timeout: 60_000 });
@@ -106,7 +184,7 @@ async function drive(page: Page, base: string): Promise<void> {
     if (acct === 0) await shot("1-bidder.png");
   }
 
-  await page.goto(`${base}/results.html`);
+  await page.goto(`${base}/results.html${q}`);
   await useAccount(6);
   await page.click("#warp");
   await waitLog("1 hour ahead");
@@ -114,7 +192,7 @@ async function drive(page: Page, base: string): Promise<void> {
   await waitLog("bidding closed");
 
   for (const m of [3, 4]) {
-    await page.goto(`${base}/committee.html`);
+    await page.goto(`${base}/committee.html${q}`);
     await useAccount(m);
     await page.waitForFunction(() => document.querySelector("#member-status")?.textContent?.includes("may release"), null, { timeout: 60_000 });
     await page.click("#open-shares");
@@ -125,7 +203,7 @@ async function drive(page: Page, base: string): Promise<void> {
     console.log(`  ok  member ${m - 2} opened its shares and signed its release in the browser`);
   }
 
-  await page.goto(`${base}/results.html`);
+  await page.goto(`${base}/results.html${q}`);
   await useAccount(6);
   await page.click("#open-bids");
   await waitLog("bids opened");

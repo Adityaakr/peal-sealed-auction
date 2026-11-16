@@ -70,6 +70,17 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Can the committee's cards outlive the node's history? | The cards exist only in `MemberJoined` events. They are saved in `deployments/committee-cards.json` (and served to the pages) as an untrusted fallback, checked against the member-signed card hash | `readCommittee(..., fallback)` |
 | Block rate | About 0.7 blocks per second (5,483 blocks between 08:00 and 10:10 UTC) | block numbers of known txs |
 
+## 2026-11-16, the hosted app and the browser guest account
+
+| Question | Finding | How |
+|---|---|---|
+| Can the hosted pages reach REST and the CometBFT RPC? | Only through same-origin paths: neither sends CORS headers. `vercel.json` rewrites exactly the routes in `proxy/allowlist.ts` (PQC routes, balances, account numbers, the tx search) and `/rpc`; `npm run web:preview` serves a build with the same rewrites and headers | `curl` through the preview: `/rest/qorechain/pqc/v1/params` and an RPC `status` answer |
+| Does the production CSP (`script-src 'self'`) run the SDK? | It needs `'wasm-unsafe-eval'`: the SDK bundle compiles a WebAssembly hasher (`WebAssembly.compile`). No inline scripts are emitted by the build. With that, account derivation, sealing and native signing ran with no console errors | the guest proof below, under the preview's CSP |
+| Can a fresh browser account act on the testnet with no wallet extension? | Yes. A guest from a new 24-word phrase registered its ML-DSA-87 key (`MsgRegisterPQCKeyV2`, classically signed with a proof of possession), opened a window scoped to the faucet for 1 tx and claimed 1,000 PEAL-T, then opened a window scoped to PEAL-T and the auction for 2 txs and sent approve + `commitBid` of a bid sealed in the page | `scripts/testnet/guest-proof.ts`; txs in `deployments/open-demo-0x9A98…c7B4.json` |
+| What does a visitor's first bid cost? | 0.513 QOR in total for key registration, two windows, the faucet claim, approve and commit. The windows were spent exactly, so no close fee | guest balance 2 → 1.486607 QOR |
+| `createAuction` for the visitors' buyback | 686k gas; approve 46k | `npm run testnet -- create --buyback --demo …` |
+| How many bids can the demo auction take? | Capped at 20: settling opens every bid in one `openBids` inside a 3M-gas window transaction, at about 120k gas a bid (286k for 2 on the first run) | design; to confirm at the settle |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

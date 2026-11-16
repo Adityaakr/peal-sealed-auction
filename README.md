@@ -23,6 +23,29 @@ As a result:
 
 **It runs on the testnet.** One whole auction ran there end to end with the real precompiles: two sealed bids, a forged release refused by `pqcVerify`, two releases with the third member offline, on-chain decryption, and one clearing price ([run below](#testnet-demo-run-2026-11-16)).
 
+## Try it in your browser
+
+The web app opens on a landing page that explains the mechanism with a drawing of the real protocol, live figures read from the chain, and the testnet evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`: 50 fUSD for PEAL-T, bidding until 23 November 2026 15:28 UTC):
+
+1. **Make a guest account.** *Connect* opens a wallet drawer. A guest account is a fresh testnet key pair made in the browser (secp256k1 and ML-DSA-87, derived by `@qorechain/sdk` from a new 24-word phrase). It lives only in that browser's storage, and it can be backed up and forgotten.
+2. **Fund it** with about 1 QOR from the [QoreChain dashboard faucet](https://dashboard.qorechain.io/faucet), or in one transfer approved in QoreX.
+3. **Get 1,000 PEAL-T** from the demo faucet with one click.
+4. **Seal and commit a bid.** The bid page checks the committee's keys, seals the bid in the browser and sends `approve` and `commitBid` inside one EVM window scoped to the token and the auction. The guest registers its ML-DSA-87 key first, as QoreChain requires. If the account is short of PEAL-T, the faucet claim joins the same window.
+
+After the close the demo committee releases (`npm run testnet -- settle 0x9A98…c7B4`), and the results page shows every bid opened, the clearing price, and a *Claim my payout* button.
+
+**Proven on the testnet** through the production build, with the same headers and rewrites as Vercel (`scripts/testnet/guest-proof.ts`): a fresh guest registered its ML-DSA-87 key, claimed PEAL-T, and committed a bid sealed in the page, for 0.51 QOR in all. Every hash is in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
+
+**The three ways in**, and what each can really do on QoreChain today:
+
+| Wallet | What it does here | What it cannot do |
+|---|---|---|
+| Guest account (browser) | Bids, claims and runs the permissionless steps. It registers its ML-DSA-87 key, opens a window scoped to the exact contracts and transaction count, sends, and closes the window if anything is left of it | Hold real funds: testnet only, and the page says so |
+| QoreX | Identifies the visitor and funds the guest with one `MsgSend` approved in QoreX | Send EVM transactions for pages ("not yet supported" in its docs) |
+| MetaMask | Connects and adds the QoreChain testnet network | Sign for QoreChain: EVM transactions need an ML-DSA-87 key and a window, which MetaMask cannot make |
+
+Committee members and issuers keep using their own accounts and the CLI; the demo committee never types its keys into the hosted page.
+
 ## How it works
 
 ```
@@ -69,6 +92,8 @@ Every testnet hash is listed in [`deployments/`](deployments/).
 | PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` |
 | fUSD (the fest's token) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
 
+Open demo auction for visitors: `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4` (a buyback: 50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD, bond 1 PEAL-T, at most 20 bids), opened with `npm run testnet -- create --buyback --demo …`; transactions in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
+
 Committee set `0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5`, 2 of 3. In the demo the owner holds all three member keys as separate accounts; this is disclosed and for the demo only.
 
 | Member | Account | SHA3-256 of its registered ML-KEM-1024 key |
@@ -103,7 +128,7 @@ npm ci
 forge test            # 105 Solidity tests: unit, fuzz, invariants
 npm run test:ts       # client tests with real QoreSeal and ML-DSA-87
 npm run e2e:local     # a whole auction on anvil
-npm run web:smoke     # the same through the web pages, in headless Chromium
+npm run web:smoke     # the landing page, a guest account's bid, then a whole auction, in headless Chromium
 ```
 
 **The whole auction, locally** (`npm run e2e:local`). It uses real ML-DSA-87 keys and signatures, real QoreSeal envelopes, and the kit's real `verifyMember`. It checks:
@@ -119,15 +144,19 @@ The EVM cannot run QoreChain's precompiles, so locally two stand-ins replace the
 **The web pages, locally:**
 
 ```sh
-npm run local:stack   # terminal 1: anvil, contracts, committee, one open auction, throwaway accounts
-npm run web           # terminal 2: http://localhost:5173
+npm run local:stack   # terminal 1: anvil, contracts, committee, a sale and an open demo buyback, throwaway accounts
+npm run web           # terminal 2: http://localhost:5173 (the landing page; the app is at /auctions.html)
 ```
 
+Served from this machine, the pages use the local stack's config when it exists and the testnet otherwise; `?net=local` or `?net=testnet` chooses. On the local node the wallet drawer's guest account gets test QOR with one click.
+
 The pages:
+- **Landing** (`/`): the mechanism, live figures, the evidence, and a guided first bid.
+- **Auctions:** every auction, newest first, with the open demo pinned on top.
 - **Issue:** open a sale, or a buyback (fUSD for PEAL-T).
-- **Bid:** check the committee's keys, then seal and commit in the browser.
+- **Bid:** check the committee's keys, then seal and commit in the browser, with the guest account or a dev account.
 - **Committee:** open your own shares in the browser (each is one random number), then sign and submit the release.
-- **Results:** close, open, finalize and pay out, all permissionless.
+- **Results:** close, open, finalize and pay out, all permissionless; *Claim my payout* for the account in use.
 
 **On the testnet** (six fresh throwaway accounts; mnemonics in `~/.qore-peal-sealed-auction/<name>.env`, mode 0600, never in the repository):
 
@@ -144,6 +173,22 @@ npm run web                                   # then http://localhost:5173/?net=
 ```
 
 **A committee member's daemon:** `npm run committee -- --member committee1 --auction 0x… [--keeper]`. It waits for the on-chain close, releases once, and as a keeper opens the bids and finalizes when no release can still arrive.
+
+## Hosting on Vercel
+
+The repository is ready to import in Vercel as it is: `vercel.json` holds everything, and no environment variables are needed. Vercel's free tier is enough.
+
+1. In Vercel, *Add New… → Project*, import `Adityaakr/peal-sealed-auction`, keep the defaults, and deploy.
+2. That's it. The site opens on the landing page, on the testnet.
+
+What `vercel.json` does:
+- **Build:** `npm ci` (with the git-over-https rewrite the toolkit dependency needs), then `npm run web:build`; it serves `apps/web/dist`.
+- **Rewrites:** QoreChain's REST API and CometBFT RPC send no CORS headers, so the pages reach them through same-origin paths. `/rest/…` forwards only the routes the pages read (the PQC key, account and window routes, balances, account numbers, and the transaction search), the same list as `proxy/allowlist.ts`. `/rpc` forwards to the CometBFT RPC, which the guest account uses to broadcast its hybrid-signed messages. The EVM RPC allows browsers directly. Nothing is forwarded anywhere else, and the proxy holds no keys.
+- **Headers:** a Content-Security-Policy that allows scripts only from the site (plus `'wasm-unsafe-eval'`, because the SDK compiles a WebAssembly hasher; it does not allow `eval`), fonts from Fontshare and Google Fonts, and connections only to the site and the EVM RPC. Framing is refused.
+
+To check a build the way Vercel serves it, with the same headers and rewrites: `npm run web:build && npm run web:preview`, then <http://localhost:4173/?net=testnet>.
+
+To point the hosted site at a new demo auction: `npm run testnet -- create --buyback --demo --commit-seconds 604800 --release-seconds 86400 --max-bids 20`, commit the updated `apps/web/public/config.testnet.json`, and Vercel redeploys.
 
 ## The rules the contract enforces
 
@@ -180,11 +225,13 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `src/libraries/` | `ClearingPrice` (uniform clearing) and `AuctionMath` (price ladder, escrow and payment rounding, fee) |
 | `src/demo/` | PEAL-T demo token and a rate-limited faucet |
 | `client/` | TypeScript client: committee discovery and checks, bid sealing, share opening, release signing, chunked log reads, ABIs |
-| `apps/web/` | Issuer, bidder, committee and results pages (Vite, plain TypeScript) |
+| `apps/web/` | Landing page, and the auctions, issuer, bidder, committee and results pages (Vite, plain TypeScript, the shared Peal design language) |
+| `apps/web/src/wallet/` | The wallet drawer: guest account, QoreX, MetaMask |
+| `vercel.json`, `scripts/web-preview.ts` | Hosting on Vercel, and a local preview with the same headers and rewrites |
 | `apps/committee/` | The member step and the member daemon |
 | `proxy/` | Read-only, allowlisted GET proxy for the PQC REST routes (the public REST endpoint sends no CORS headers) |
 | `scripts/testnet/` | Accounts, setup, deploy, demo, windows |
-| `scripts/local/`, `scripts/e2e-local.ts`, `scripts/local-stack.ts`, `scripts/web-smoke.ts` | Local chain, end-to-end run, browser run |
+| `scripts/local/`, `scripts/e2e-local.ts`, `scripts/local-stack.ts`, `scripts/web-smoke.ts` | Local chain, end-to-end run, browser run (landing page, guest account, whole auction) |
 | `test/`, `test-ts/` | Foundry tests (on the kit's precompile mocks) and client tests |
 | `deployments/` | Testnet addresses and every transaction hash |
 | `docs/spikes.md` | Testnet facts settled by experiment |
@@ -206,6 +253,8 @@ The design and the clearing rules come from the author's own earlier project, **
 | `SealedAuctionFactory`: clone, create-fund-open in one call, metadata hash, paging | `contracts/src/auctionkit/AuctionFactory.sol` |
 | `DemoFaucet` | `contracts/src/auctionkit/DemoFaucet.sol` |
 | Design rules: exclude and never fail; one all-or-nothing signed release per member over the frozen set; bind every seal to its context; release on chain state, not a clock; junk costs a deposit | `docs/plans/017-peal-redesign.md`, section 4 |
+
+**The look.** The web app and its landing page follow the shared design language of the three Peal entries, written down in Peal Tender's [`docs/design.md`](https://github.com/Adityaakr/peal-tender/blob/main/docs/design.md): the design language of Peal, re-stated as rules (sky wash, white surfaces, one blue accent, Satoshi and Josefin Sans, sentence case), with Peal credited. Peal's interface code was not read or copied. The shared tokens and components (`styles.css`), the UI helpers and the wallet modules are copied from Peal Tender's `apps/dashboard` (the reference implementation, written during the fest) with a note at the top of each file; the landing page, its illustrations and the app pages are this repository's own.
 
 **New here:** the whole sealing layer:
 - ML-KEM-1024 share envelopes to registered recipient keys;

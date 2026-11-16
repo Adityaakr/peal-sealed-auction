@@ -7,34 +7,49 @@
 import { encodeFunctionData, type Hex } from "viem";
 import { sealedAuctionAbi } from "../../../client/abi.ts";
 import { openMemberShares, readBids, releaseMessage, signRelease, type ReleaseShares } from "../../../client/release.ts";
-import { $, accountPicker, auctionSummary, el, guard, header, loadConfig, logLine, publicClientOf, send, short, type DevAccount } from "./common.ts";
+import { $, accountPicker, activityCard, auctionSummary, carry, el, guard, header, loadConfig, logLine, pageHead, publicClientOf, send, short, type DevAccount } from "./common.ts";
+import { h } from "./ui.ts";
 
 const cfg = await loadConfig();
 header("Committee member", cfg);
 const client = publicClientOf(cfg);
 const app = $("#app");
 if (!cfg.auction) {
-  app.replaceChildren(el("div", { class: "card" }, "No auction selected: open one from the home page."));
+  app.replaceChildren(pageHead("Committee", "Committee member"), h("div.note", "No auction selected. ", h("a", { href: `./auctions.html${carry(cfg)}` }, "Pick one from the auctions"), "."));
   throw new Error("no auction");
 }
 const auction = cfg.auction;
-app.replaceChildren(el("div", { class: "card" }, el("h1", {}, "Committee member"), el("div", { class: "mono" }, auction)));
+app.replaceChildren(
+  pageHead(
+    "Committee",
+    "Committee member",
+    "For the auction's committee members only. Your keys are derived in this browser, your envelopes are opened here, and your release is signed here with ML-DSA-87. Releases are refused until the chain says bidding is closed.",
+  ),
+  h("div.small.muted.auction-line", "Auction ", el("span", { class: "mono" }, auction)),
+);
 
 let me: DevAccount | undefined;
 let index = 0;
 let opened: ReleaseShares | undefined;
 const status = el("div", { id: "member-status", class: "muted" }, "Choose the member account.");
-accountPicker(cfg, app, (d) => {
-  me = d;
-  void refresh();
-});
+accountPicker(
+  cfg,
+  app,
+  (a) => {
+    if (a.kind !== "dev") return;
+    me = a.dev;
+    void refresh();
+  },
+  { role: "a committee member" },
+);
 
 const work = el("div", { class: "card" }, el("h2", {}, "My shares"), status);
+status.classList.add("small");
 const openBtn = el("button", { id: "open-shares" }, "Open my shares in this browser") as HTMLButtonElement;
 const relBtn = el("button", { id: "release" }, "Sign and submit my release (ML-DSA-87)") as HTMLButtonElement;
 const table = el("div", { class: "tablewrap", id: "shares" });
 work.append(el("div", { class: "row" }, openBtn, relBtn), table);
-app.append(work, el("div", { class: "card" }, el("h2", {}, "Activity"), el("div", { id: "log" })));
+app.append(work, activityCard());
 
 async function refresh(): Promise<void> {
   if (!me) return;
@@ -70,7 +85,7 @@ openBtn.onclick = () =>
     });
     table.replaceChildren(
       el("p", { class: "muted" }, `Opened ${bids.length} envelopes with my ML-KEM-1024 + X25519 key in ${ms} ms. Each share is one random number below 2^255 - 19; it reveals nothing about the bid.`),
-      el("table", {}, el("tr", {}, el("th", {}, "bid"), el("th", {}, "bidder"), el("th", {}, "my share")), ...rows),
+      el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Bid"), el("th", {}, "Bidder"), el("th", {}, "My share"))), el("tbody", {}, ...rows)),
     );
     logLine(`opened ${bids.length} shares (${opened.invalid.length} flagged) in this browser`, "ok");
     await refresh();
