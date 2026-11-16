@@ -1,0 +1,9 @@
+{
+  "what": "the wallet drawer's QoreX module (qorex-types) funding a guest through the official QoreX mock, hybrid-signed on qorechain-diana",
+  "date": "2026-11-16T21:28:00.754Z",
+  "qorexAccount": "qor1a43h5ccgu3uar8pwr9mvwwgp9a4p5r6kww998m",
+  "guest": "qor1dv5tstpxg2p5jdhl7we59jq8fjv7qzxe89zyjt",
+  "topUp": "9B89A22F09022AC51DC839812031381910D7906106898C3EBDDF0ACA305875B6",
+  "send": "1A49EE30092C189555B405FC43DA69FB8A0E61CA58C2E5E156211EDFF17AC3F3",
+  "shield": "shielded"
+}

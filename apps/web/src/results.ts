@@ -5,6 +5,7 @@
  */
 import { createTestClient, encodeFunctionData, http, type Address, type Hex } from "viem";
 import { pealTAbi, sealedAuctionAbi } from "../../../client/abi.ts";
+import { auditAuction } from "../../../client/audit.ts";
 import {
   $,
   accountPicker,
@@ -26,7 +27,7 @@ import {
   STATE_WORDS,
   type Actor,
 } from "./common.ts";
-import { chip, duration, h } from "./ui.ts";
+import { chip, duration, h, hash } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
 
 const STATUS = ["sealed", "opened", "excluded", "unopenable"];
@@ -95,7 +96,53 @@ async function main(): Promise<void> {
       });
   }
   actions.append(row);
-  app.append(actions, activityCard());
+
+  // Check it yourself: the contract's verdicts, repeated in this browser from public data.
+  const auditOut = el("div", { id: "audit" });
+  const bAudit = btn("audit", "Check it in this browser");
+  const auditCard = el(
+    "div",
+    { class: "card" },
+    el("h2", {}, "Check it yourself"),
+    el(
+      "p",
+      { class: "muted small" },
+      "Your browser verifies each member's ML-DSA-87 release signature with @qorechain/pqc against the key the chain registered (pqcKeyStatus), then rebuilds every bid key from the stored shares and decrypts each bid itself. No trust in the contract's own checks, and nothing is sent.",
+    ),
+    el("div", { class: "row" }, bAudit),
+    auditOut,
+  );
+  bAudit.onclick = () =>
+    guard(bAudit, async () => {
+      auditOut.replaceChildren(el("p", { class: "muted small" }, "Reading the releases and the stored shares…"));
+      const r = await auditAuction(client, auction);
+      const releaseRows = r.releases.map((x) =>
+        el(
+          "tr",
+          {},
+          el("td", {}, `member ${x.memberIndex}`),
+          el("td", { class: "mono" }, short(x.member, 6)),
+          el("td", {}, x.signatureOk === true ? chip("signature verified here", "ok") : x.signatureOk === false ? chip("signature does not verify", "bad") : chip(x.note ?? "not checked", "plain")),
+          el("td", {}, x.txHash ? hash(x.txHash, { label: "release transaction" }) : ""),
+        ),
+      );
+      const bidRows = r.bids.map((b) =>
+        el(
+          "tr",
+          {},
+          el("td", {}, `bid ${b.bidId}`),
+          el("td", { class: "mono" }, b.reopened ? `${b.reopened.quantity} at tick ${b.reopened.tick}` : "not reopened"),
+          el("td", {}, b.agrees === true ? chip("agrees with the contract", "ok") : b.agrees === false ? chip("disagrees with the contract", "bad") : chip(b.note ?? "undecided", "wait")),
+        ),
+      );
+      auditOut.replaceChildren(
+        el("p", {}, r.ok ? chip("audit passed", "ok") : chip("audit did not pass", "bad")),
+        el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, el("tr", {}, ...["Release", "Member", "ML-DSA-87", "Transaction"].map((x) => el("th", {}, x)))), el("tbody", {}, ...releaseRows))),
+        el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, el("tr", {}, ...["Bid", "Reopened here (base units)", "Verdict"].map((x) => el("th", {}, x)))), el("tbody", {}, ...bidRows))),
+      );
+      logLine(r.ok ? "audit passed: releases verified and bids reopened in this browser" : "audit did not pass", r.ok ? "ok" : "bad");
+    });
+  app.append(actions, auditCard, activityCard());
 
   const sendAll = async (title: string, calls: Call[]): Promise<Hex[]> => {
     if (!actor) throw new Error("choose an account first");

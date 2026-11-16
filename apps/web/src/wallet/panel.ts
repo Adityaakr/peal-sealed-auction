@@ -176,8 +176,8 @@ function guestSection(): HTMLElement {
         try {
           const uqor = parseUnits(amt.value.trim() || "0", 6);
           log(`Asking QoreX to send ${amt.value} QOR to your guest account…`);
-          const tx = await qorex.sendQor(state.qorex!.cosmos, g.cosmos, uqor);
-          log(`QoreX sent it (tx ${tx.slice(0, 10)}…).`);
+          const sent = await qorex.sendQor(state.qorex!.cosmos, g.cosmos, uqor);
+          log(`QoreX sent it (tx ${sent.txHash.slice(0, 10)}…, ${sent.shield === "shielded" ? "hybrid ML-DSA-87 layer confirmed by QoreX" : `QoreX shield check: ${sent.shield}`}).`);
           setTimeout(() => void refreshGuest(), 4000);
         } catch (e) {
           state.error = e instanceof Error ? e.message : String(e);

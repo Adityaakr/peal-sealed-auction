@@ -18,6 +18,7 @@
  */
 import { deriveUnifiedAccount, generateMnemonic, pqcSign } from "@qorechain/sdk";
 import { hexToBytes, keccak256, parseUnits, toBytes, toHex, type Abi, type Address, type Hex } from "viem";
+import { auditAuction } from "../client/audit.ts";
 import {
   bidContext,
   decodePlaintext,
@@ -170,6 +171,15 @@ async function run(s: Stack): Promise<void> {
   check((await bal(fusd, bidders[0]!.address)) === 25_000_000n + 5_000_000n, "alice paid 1.50, not her 2.00: 25 fUSD + bond refunded");
   check((await bal(fusd, issuer.address)) === 150_000_000n, "issuer received 150 fUSD");
   check((await bal(fusd, auction)) === 0n && (await bal(pealt, auction)) === 0n, "auction holds nothing after every claim");
+
+  // An outsider's audit, from public data only: release signatures checked off chain with
+  // @qorechain/pqc (real ML-DSA-87), every bid reopened from the stored shares.
+  const audit = await auditAuction(client, auction);
+  check(audit.releases.filter((r) => r.signatureOk === true).length === 2, "audit: both releases verify with ML-DSA-87 off chain, against keys read from pqcKeyStatus");
+  check(audit.releases[2]!.note === "no release", "audit: member 3 never released");
+  check(audit.bids.slice(0, 3).every((b) => b.agrees === true && b.reopened !== undefined), "audit: every opened bid reopens to what the contract recorded");
+  check(audit.bids[3]!.agrees === true && audit.bids[3]!.reopened === undefined, "audit: the junk bid is unopenable from the stored shares too");
+  check(audit.ok, "audit passed");
   console.log("\ngas used (pqcVerify is a stand-in here; on testnet add about 313k per ML-DSA-87 check):");
   for (const [fn, gs] of gasUsed) console.log(`  ${fn.padEnd(16)} ${gs.map(String).join(", ")}`);
   console.log("\nlocal end-to-end run passed");

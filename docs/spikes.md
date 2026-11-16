@@ -81,6 +81,17 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | `createAuction` for the visitors' buyback | 686k gas; approve 46k | `npm run testnet -- create --buyback --demo …` |
 | How many bids can the demo auction take? | Capped at 20: settling opens every bid in one `openBids` inside a 3M-gas window transaction, at about 120k gas a bid (286k for 2 on the first run) | design; to confirm at the settle |
 
+## 2026-11-17, kits and the fest's checks
+
+| Question | Finding | How |
+|---|---|---|
+| How does the fest site decide "Verified"? | Kits: found in the repository's dependency files (and code). Network features: found on chain for one of the project's listed `qor1` addresses (at most five). Everything else shows "Declared". So `qorechain-pqc` was declared while it came in only through the SDK, and the KEM key registry was declared because the listed address was not a committee member | the fest site's form hints and FAQ text, and this project's page |
+| Does `@qorechain/pqc` verify the signatures the live `pqcVerify` accepted? | Yes. Both releases of the testnet run (`0xc999a0c2…ee68`, `0xcc039c7d…3007`) verify with `mldsa87.verify` over the 256-byte message rebuilt off chain, against the keys `pqcKeyStatus` returns. Both bids reopen from the stored shares to what the contract recorded | `npm run testnet -- audit 0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` |
+| Does the drawer's QoreX code work against QoreX's real interface? | Yes, through the official mock (`@qorechain/qorex-wallet-mock` 0.1.0, profile "current"), which signs as QoreX does. The mock registered its account's ML-DSA-87 key on its own, then sent 0.01 QOR to the guest; `signAndBroadcast` answered `shield: "shielded"` | tx `1A49EE30…3F3`, `deployments/qorex-proof.json` |
+| The mock's address | QoreX derives `m/44'/118'/0'/0/0` on the native lane, so the same phrase gives a different `qor1` address than the SDK's EVM-style derivation (`qor1a43h…998m` against `qor1dhec…dvzx`) | `npm run testnet -- qorex-proof` |
+| Does `@qorechain/wallet-adapter` install next to the SDK? | Not as is: its peers ask for cosmjs 0.32 and the SDK uses 0.39 (`ERESOLVE`, as its docs warn). An `overrides` entry that points its two peers at 0.39 installs cleanly | `npm i @qorechain/wallet-adapter@0.6.0` |
+| Is the `@handle` registry usable from a page? | Not yet: `@qorechain/handles` needs the registry's base URL and ed25519 key, and neither is published | package README, docs page "Chain bridge and handles" |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

@@ -218,4 +218,9 @@ async function drive(page: Page, base: string, auction: string): Promise<void> {
   const state = (await page.textContent("#state")) ?? "";
   if (state !== "Settled" || !price.startsWith("1.5 ")) throw new Error(`expected Settled at 1.5, got ${state} at ${price}`);
   console.log(`  ok  settled at ${price} with member 3 offline; every bid paid out`);
+  await page.click("#audit");
+  await waitLog("audit passed");
+  const verified = await page.$$eval("#audit td .chip.ok", (cs) => cs.filter((c) => c.textContent?.includes("signature verified here")).length);
+  if (verified !== 2) throw new Error(`expected 2 releases verified in the browser, got ${verified}`);
+  console.log("  ok  the browser verified both ML-DSA-87 releases (@qorechain/pqc) and reopened every bid itself");
 }
