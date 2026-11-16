@@ -28,8 +28,10 @@ const page = await client.readContract({
 });
 if (page.length === 0) list.append(el("p", { class: "muted" }, "No auctions yet."));
 const q = new URLSearchParams(location.search);
-for (const a of [...page].reverse()) {
-  const s = await auctionSummary(client, a);
+const listed = [...page].reverse();
+const summaries = await Promise.all(listed.map((a) => auctionSummary(client, a)));
+for (const [i, a] of listed.entries()) {
+  const s = summaries[i]!;
   q.set("auction", a);
   list.append(
     el(

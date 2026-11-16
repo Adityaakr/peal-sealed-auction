@@ -48,6 +48,120 @@ async function waitUntil(t: bigint, what: string): Promise<void> {
   }
 }
 
+type Evm = (n: Named, label: string, to: Address, abi: Abi, functionName: string, args?: unknown[]) => Promise<unknown>;
+
+/** The deployer (as issuer) opens an auction of 100 PEAL-T for fUSD on the deployed factory. */
+async function createAuction(
+  d: { pealt: Address; fusd: Address; factory: Address; committeeSetId: Hex },
+  deployer: Named,
+  commit: bigint,
+  release: bigint,
+  evm: Evm,
+  numTicks = 8,
+): Promise<{ auction: Address; cfg: { endTime: bigint; releaseDeadline: bigint } }> {
+  const client = publicClient();
+  const now = (await client.getBlock()).timestamp;
+  const name = "Peal Sealed Auction testnet demo";
+  const details = "100 PEAL-T for fUSD, 2-of-3 committee";
+  const cfg = {
+    issuer: deployer.evm,
+    saleToken: d.pealt,
+    quoteToken: d.fusd,
+    totalSupply: parseUnits("100", 18),
+    saleDecimals: 18,
+    reservePrice: 1_000_000n,
+    tickSize: 500_000n,
+    numTicks,
+    startTime: now,
+    endTime: now + commit,
+    releaseDeadline: now + commit + release,
+    minBidQuantity: 1n,
+    maxQuantityPerAddress: 0n,
+    maxBids: 32,
+    bidBond: 1_000_000n,
+    protocolFeeBps: 0,
+    feeRecipient: "0x0000000000000000000000000000000000000000" as Address,
+    committeeSetId: d.committeeSetId,
+    metadataHash: (await client.readContract({ address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "metadataHash", args: [name, details] })) as Hex,
+  };
+  await scopedWindow(deployer, [d.pealt, d.factory], 2, 1_500_000n);
+  await evm(deployer, "approveSupply", d.pealt, artifact("PealT.sol", "PealT").abi, "approve", [d.factory, cfg.totalSupply]);
+  const sim = await client.simulateContract({ account: deployer.evm, address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "createAuction", args: [cfg, name, details] });
+  await evm(deployer, "createAuction", d.factory, sealedAuctionFactoryAbi as Abi, "createAuction", [cfg, name, details]);
+  const auction = sim.result as Address;
+  console.log(`auction ${auction}: bidding until ${new Date(Number(cfg.endTime) * 1000).toISOString()}, releases until ${new Date(Number(cfg.releaseDeadline) * 1000).toISOString()}`);
+  return { auction, cfg };
+}
+
+/** Only open an auction (for the web pages or a recorded demo). */
+export async function create(argv: string[]): Promise<void> {
+  const { values } = parseArgs({
+    args: argv,
+    options: { "commit-seconds": { type: "string", default: "900" }, "release-seconds": { type: "string", default: "900" }, ticks: { type: "string", default: "8" } },
+  });
+  const d = JSON.parse((await import("node:fs")).readFileSync(join(ROOT, "deployments", "qorechain-diana.json"), "utf8"));
+  const deployer = await load("deployer");
+  const evm: Evm = async (n, label, to, abi, functionName, args = []) => {
+    const r = await sendEvm(n.acc, { to, data: encodeFunctionData({ abi, functionName, args } as never) });
+    console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
+    return r;
+  };
+  await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks));
+}
+
+/**
+ * Settle an auction someone else bid on: wait for the end of bidding, close,
+ * have members 1 and 2 release (member 3 stays offline), open the bids, wait
+ * out the release deadline, decide any bid still pending, finalize. Claims are
+ * left to the bidders and the issuer (they are permissionless).
+ */
+export async function settle(auction: Address): Promise<void> {
+  const client = publicClient();
+  const deployer = await load("deployer");
+  const members = await Promise.all(COMMITTEE.slice(0, 2).map(load));
+  const read = <T>(functionName: string) => client.readContract({ address: auction, abi: sealedAuctionAbi, functionName } as never) as Promise<T>;
+  const cfg = await read<{ endTime: bigint; releaseDeadline: bigint }>("config");
+  const send = async (n: Named, label: string, functionName: string, args: unknown[] = []) => {
+    const r = await sendEvm(n.acc, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName, args } as never) });
+    console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
+  };
+
+  await waitUntil(cfg.endTime, "the end of bidding");
+  const count = Number(await read<number>("bidCount"));
+  console.log(`bidding closed with ${count} bids`);
+  // closeCommit, openBids twice, finalize; the window must outlive the release window.
+  await scopedWindow(deployer, [auction], 4, 3_000_000n, 7200);
+  if (Number(await read<number>("state")) === 2) await send(deployer, "closeCommit", "closeCommit");
+  if (count === 0) {
+    console.log("no bids: the auction failed; the issuer can claimUnsold");
+    return;
+  }
+  for (const m of members) {
+    await scopedWindow(m, [auction], 1, 3_000_000n);
+    const r = await memberStep({
+      client,
+      auction,
+      me: { address: m.evm, pqc: m.acc.pqc, seal: m.seal },
+      send: async (tx) => (await sendEvm(m.acc, tx)).transactionHash,
+      log: (l) => console.log(l),
+    });
+    console.log(`${m.name}: ${JSON.stringify(r)}`);
+  }
+  const ids = Array.from({ length: count }, (_, i) => BigInt(i));
+  await send(deployer, "openBids", "openBids", [ids]);
+  await waitUntil(cfg.releaseDeadline, "the release deadline (member 3 is offline)");
+  if (Number(await read<number>("decidedCount")) < count) await send(deployer, "openBids (pending)", "openBids", [ids]);
+  await send(deployer, "finalize", "finalize");
+  const state = Number(await read<number>("state"));
+  const price = await read<bigint>("clearingPrice");
+  for (const i of ids) {
+    const b = await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "getBid", args: [i] });
+    const alloc = await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "allocationOf", args: [i] });
+    console.log(`bid ${i}: ${b.bidder} status ${b.status} exclusion ${b.exclusion} qty ${b.quantity} tick ${b.tick} allocation ${alloc}`);
+  }
+  console.log(`state ${state === 4 ? "Settled" : state === 5 ? "Failed" : state}, clearing price ${price}`);
+}
+
 export async function demo(argv: string[]): Promise<void> {
   const { values } = parseArgs({ args: argv, options: { "commit-seconds": { type: "string", default: "300" }, "release-seconds": { type: "string", default: "420" } } });
   const d = JSON.parse((await import("node:fs")).readFileSync(join(ROOT, "deployments", "qorechain-diana.json"), "utf8"));
@@ -67,36 +181,7 @@ export async function demo(argv: string[]): Promise<void> {
   };
 
   // 1. The issuer (deployer) opens the auction: 100 PEAL-T for fUSD.
-  const now = (await client.getBlock()).timestamp;
-  const name = "Peal Sealed Auction testnet demo";
-  const details = "100 PEAL-T for fUSD, 2-of-3 committee";
-  const commit = BigInt(values["commit-seconds"]!);
-  const cfg = {
-    issuer: deployer.evm,
-    saleToken: d.pealt as Address,
-    quoteToken: d.fusd as Address,
-    totalSupply: parseUnits("100", 18),
-    saleDecimals: 18,
-    reservePrice: 1_000_000n,
-    tickSize: 500_000n,
-    numTicks: 8,
-    startTime: now,
-    endTime: now + commit,
-    releaseDeadline: now + commit + BigInt(values["release-seconds"]!),
-    minBidQuantity: 1n,
-    maxQuantityPerAddress: 0n,
-    maxBids: 32,
-    bidBond: 1_000_000n,
-    protocolFeeBps: 0,
-    feeRecipient: "0x0000000000000000000000000000000000000000" as Address,
-    committeeSetId: d.committeeSetId as Hex,
-    metadataHash: (await client.readContract({ address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "metadataHash", args: [name, details] })) as Hex,
-  };
-  await scopedWindow(deployer, [d.pealt, d.factory], 2, 1_500_000n);
-  await evm(deployer, "approveSupply", d.pealt, artifact("PealT.sol", "PealT").abi, "approve", [d.factory, cfg.totalSupply]);
-  const sim = await client.simulateContract({ account: deployer.evm, address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "createAuction", args: [cfg, name, details] });
-  await evm(deployer, "createAuction", d.factory, sealedAuctionFactoryAbi as Abi, "createAuction", [cfg, name, details]);
-  const auction = sim.result as Address;
+  const { auction, cfg } = await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm);
   record.auction = auction;
   console.log(`auction ${auction}`);
 

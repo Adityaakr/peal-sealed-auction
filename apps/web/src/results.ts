@@ -95,26 +95,27 @@ async function render(): Promise<void> {
     add("sold", `${fmt(sold, sd)} ${ss}`);
     add("proceeds", `${fmt(proceeds, qd)} ${qs}`);
   }
-  summaryCard.replaceChildren(el("h1", {}, "Auction results"), kv);
-  const rows: HTMLElement[] = [];
-  for (let i = 0; i < s.bidCount; i++) {
-    const b = await read<{ bidder: Address; status: number; exclusion: number; quantity: bigint; tick: number; escrow: bigint; bondBurned: boolean; claimed: boolean }>("getBid", [BigInt(i)]);
-    const alloc = s.state === "Settled" ? await read<bigint>("allocationOf", [BigInt(i)]) : 0n;
+  type B = { bidder: Address; ct: `0x${string}`; status: number; exclusion: number; quantity: bigint; tick: number; escrow: bigint; bondBurned: boolean; claimed: boolean };
+  const ids = Array.from({ length: s.bidCount }, (_, i) => BigInt(i));
+  const [bids, allocs] = await Promise.all([
+    Promise.all(ids.map((i) => read<B>("getBid", [i]))),
+    Promise.all(ids.map((i) => (s.state === "Settled" ? read<bigint>("allocationOf", [i]) : Promise.resolve(0n)))),
+  ]);
+  const rows = bids.map((b, i) => {
     const openedBid = b.status === 1 || b.status === 2;
-    rows.push(
-      el(
-        "tr",
-        {},
-        el("td", {}, String(i)),
-        el("td", { class: "mono" }, short(b.bidder, 6)),
-        el("td", { class: b.status === 1 ? "ok" : b.status >= 2 ? "bad" : "" }, STATUS[b.status]! + (b.exclusion ? ` (${EXCL[b.exclusion]})` : "") + (b.bondBurned ? ", bond burned" : "")),
-        el("td", { class: "mono" }, openedBid ? `${fmt(b.quantity, sd)} @ tick ${b.tick}` : "sealed"),
-        el("td", { class: "mono" }, fmt(b.escrow, qd)),
-        el("td", { class: "mono" }, s.state === "Settled" ? fmt(alloc, sd) : "–"),
-        el("td", {}, b.claimed ? "paid" : ""),
-      ),
+    return el(
+      "tr",
+      {},
+      el("td", {}, String(i)),
+      el("td", { class: "mono" }, short(b.bidder, 6)),
+      el("td", { class: b.status === 1 ? "ok" : b.status >= 2 ? "bad" : "" }, STATUS[b.status]! + (b.exclusion ? ` (${EXCL[b.exclusion]})` : "") + (b.bondBurned ? ", bond burned" : "")),
+      el("td", { class: "mono" }, openedBid ? `${fmt(b.quantity, sd)} @ tick ${b.tick}` : `sealed ${short(b.ct, 6)}`),
+      el("td", { class: "mono" }, fmt(b.escrow, qd)),
+      el("td", { class: "mono" }, s.state === "Settled" ? fmt(allocs[i]!, sd) : "–"),
+      el("td", {}, b.claimed ? "paid" : ""),
     );
-  }
+  });
+  summaryCard.replaceChildren(el("h1", {}, "Auction results"), kv);
   $("#bids").replaceChildren(
     el("table", {}, el("tr", {}, ...["bid", "bidder", "status", "opened to", "escrow", "allocation", ""].map((h) => el("th", {}, h))), ...rows),
   );
