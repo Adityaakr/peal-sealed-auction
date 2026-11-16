@@ -185,20 +185,26 @@ export async function deploy(): Promise<void> {
   }
 
   mkdirSync(dirname(WEB_CONFIG), { recursive: true });
+  // Keep the visitors' demo auction across re-runs (set by `create --demo`).
+  const previous = existsSync(WEB_CONFIG) ? (JSON.parse(readFileSync(WEB_CONFIG, "utf8")) as { demoAuction?: Address }) : {};
   writeFileSync(
     WEB_CONFIG,
     `${JSON.stringify(
       {
         network: "testnet",
         chainId: 9800,
+        cosmosChainId: "qorechain-diana",
         evmRpc: "https://evm-testnet.qore.host",
         rest: "/rest",
+        cometRpc: "/rpc",
         registry: d.registry,
         factory: d.factory,
         fusd: d.fusd,
         pealt: d.pealt,
+        faucet: d.faucet,
         committeeSetId: d.committeeSetId,
         committeeCards: "./committee-cards.testnet.json",
+        ...(previous.demoAuction ? { demoAuction: previous.demoAuction } : {}),
       },
       null,
       2,

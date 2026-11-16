@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "git config --global url.\"https://github.com/\".insteadOf \"ssh://git@github.com/\" && npm ci",
+  "buildCommand": "npm run web:build",
+  "outputDirectory": "apps/web/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/rest/qorechain/pqc/v1/:path*", "destination": "https://api-testnet.qore.host/qorechain/pqc/v1/:path*" },
+    { "source": "/rest/cosmos/tx/v1beta1/txs", "destination": "https://api-testnet.qore.host/cosmos/tx/v1beta1/txs" },
+    { "source": "/rest/cosmos/bank/v1beta1/balances/:address", "destination": "https://api-testnet.qore.host/cosmos/bank/v1beta1/balances/:address" },
+    { "source": "/rest/cosmos/auth/v1beta1/accounts/:address", "destination": "https://api-testnet.qore.host/cosmos/auth/v1beta1/accounts/:address" },
+    { "source": "/rpc", "destination": "https://rpc-testnet.qore.host/" },
+    { "source": "/rpc/:path*", "destination": "https://rpc-testnet.qore.host/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com; img-src 'self' data:; connect-src 'self' https://evm-testnet.qore.host; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        }
+      ]
+    },
+    {
+      "source": "/(config\\.testnet\\.json|committee-cards\\.testnet\\.json)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ]
+}

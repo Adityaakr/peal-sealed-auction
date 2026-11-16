@@ -17,6 +17,8 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | Issuer | the sale supply | nothing after `openCommit`; cannot read or change bids |
 | Relayer, keeper, anyone | gas | nothing; every privileged message carries its own signature, and every other step is permissionless |
 | REST proxy | nothing | nothing; its answers are checked against hashes the key owners signed on chain |
+| Guest account (a visitor's browser) | a testnet key pair in that browser's storage, a little test QOR and PEAL-T | nothing; it is a bidder like any other |
+| Hosted site (Vercel) and its rewrites | the page code; forwards allowlisted REST reads and RPC broadcasts | to serve the code in this repository. It holds no keys; a broadcast it forwards is signed, so it can drop one but not change it |
 
 ## Attacks and what stops them
 
@@ -40,6 +42,9 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | Inactive precompile (empty return) read as "valid" | `PqAuth` fails closed | `test_releaseFailsClosedOnEmptyPrecompile`, `test_failsClosedOnEmptyPrecompile` |
 | Insolvency through rounding | Escrow rounds up, payment rounds down, and proceeds are the exact sum of what winners pay | fuzz: every auction ends with both balances at exactly zero; invariants `quoteSolvent`, `saleSolvent` |
 | Fee-on-transfer token shortchanges the auction | Balance-delta checks on funding and on every commit | `test_feeOnTransferQuoteRefused` |
+| Script injection on the hosted page steals a guest key | Chain and auction text is set with `textContent`, never as HTML; the Content-Security-Policy in `vercel.json` allows scripts only from the site (no inline scripts, no `eval`) and connections only to the site and the EVM RPC; the page cannot be framed | `vercel.json`; `npm run web:preview` serves a build with the same headers |
+| The hosted rewrite or REST lies about a guest's balance, key or window | Only what the page shows is affected: the chain itself checks every key, window and balance, and a broadcast is signed before it leaves the browser | design |
+| The demo auction fills up with junk bids | At most 20 bids; each needs a registered ML-DSA-87 key, a window and a bond; junk is excluded and its bond burns | `create --max-bids 20`; `test_malformedPlaintextBurnsBond` |
 | Stolen classical (secp256k1) key | QoreChain admits EVM transactions only inside a window opened by a hybrid ML-DSA-87 signature. The scripts scope every window to the contracts an account needs and to an exact transaction count | testnet demo (scoped windows, spent windows inert) |
 
 ## Design rules (from Peal's plan 017 review, credited)
@@ -73,7 +78,9 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 - **Escrow amounts are public** and bound each bid's value from above. Bidders may over-escrow; the excess is refunded.
 - **One person holds all committee keys in the demo.** The project owner holds all three, as three separate accounts. This is disclosed and for the demo only.
 - **QoreSeal 0.1.0 is a draft** pending external review.
-- **The web pages' dev-account mode** takes a testnet mnemonic in the page. The page never stores or sends it, but a compromised page or browser could read it. It is for throwaway testnet accounts in the demo only: no real funds, no public bidding.
+- **A guest account's phrase sits in the browser's storage, unencrypted.** Anyone with access to that browser profile, or script running on the page, can read it. It is a testnet account made for trying the app: the drawer says so, offers a backup and a *Forget* button, and asks for about 1 QOR of faucet funds, never more. The CSP above narrows script injection; it does not remove the risk.
+- **The hosted page is trusted to be this repository's code.** A different deployment could serve pages that leak bids before sealing or keys from the drawer. The demo committee releases with the CLI (`npm run testnet -- settle`), never through the hosted page; a member using the committee page should serve it themselves.
+- **The web pages' dev-account mode** takes a testnet mnemonic in the page. The page never stores or sends it, but a compromised page or browser could read it. It is for throwaway testnet accounts in the demo only (the demo committee and issuer): no real funds. Public bidding goes through guest accounts.
 - **The local stand-ins accept anyone's verdict.** `OraclePqcVerify` and the `/local/attest` endpoint let anyone record a signature verdict. They exist only for local runs, are never deployed, and their source says so.
 - **The REST endpoint and the proxy are untrusted** by design. Keys from them are accepted only against member-signed hashes. Envelopes recovered from REST (smart-account bids) and cards from `deployments/committee-cards.json` are untrusted too: a wrong envelope opens to a share that fails its on-chain hash, and a wrong card fails its member-signed hash.
 - **The contracts have not had an external audit.**

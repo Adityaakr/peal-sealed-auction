@@ -8,26 +8,32 @@
  */
 import { encodeFunctionData, parseUnits, type Address, type Hex } from "viem";
 import { pealTAbi, sealedAuctionFactoryAbi } from "../../../client/abi.ts";
-import { $, accountPicker, el, guard, header, loadConfig, logLine, publicClientOf, send, type DevAccount } from "./common.ts";
+import { $, accountPicker, activityCard, el, guard, header, loadConfig, logLine, pageHead, publicClientOf, send, type DevAccount } from "./common.ts";
 
 const cfg = await loadConfig();
 header("Open an auction", cfg);
 const client = publicClientOf(cfg);
 const app = $("#app");
-app.replaceChildren(el("div", { class: "card" }, el("h1", {}, "Open an auction"), el("p", { class: "muted" }, "Creates, funds and opens the auction in one transaction. The committee is the registered 2-of-3 set.")));
+app.replaceChildren(
+  pageHead(
+    "Issue",
+    "Open an auction",
+    "Creates, funds and opens the auction in one transaction; the whole supply is pulled at creation. The committee is the registered 2-of-3 set. A sale sells PEAL-T for fUSD; a buyback sells fUSD for PEAL-T.",
+  ),
+);
 
 let me: DevAccount | undefined;
-accountPicker(cfg, app, (d) => (me = d));
+accountPicker(cfg, app, (a) => (me = a.kind === "dev" ? a.dev : undefined), { role: "the issuer" });
 
 const field = (id: string, label: string, value: string, type = "text") =>
-  el("label", { class: "row" }, el("span", { style: "min-width: 200px" }, label), el("input", { id, type, value }));
-const kind = el("select", { id: "kind" }) as HTMLSelectElement;
+  el("label", { class: "field" }, el("span", {}, label), el("input", { id, type, value, class: "input" }));
+const kind = el("select", { id: "kind", class: "input" }) as HTMLSelectElement;
 kind.append(el("option", { value: "sale" }, "Sale: PEAL-T for fUSD"), el("option", { value: "buyback" }, "Buyback (D2): fUSD for PEAL-T"));
-const form = el(
+const form = el("div", { class: "card" }, el("h2", {}, "Terms"));
+const grid = el(
   "div",
-  { class: "card" },
-  el("h2", {}, "Terms"),
-  el("label", { class: "row" }, el("span", { style: "min-width: 200px" }, "Kind"), kind),
+  { class: "form-grid" },
+  el("label", { class: "field wide" }, el("span", {}, "Kind"), kind),
   field("supply", "Supply (whole tokens)", "100", "number"),
   field("reserve", "Reserve price (quote per sale token)", "1", "number"),
   field("step", "Tick size", "0.5", "number"),
@@ -40,8 +46,8 @@ const form = el(
 );
 const go = el("button", { id: "create" }, "Create, fund and open") as HTMLButtonElement;
 const out = el("div", { id: "created", class: "mono" });
-form.append(go, out);
-app.append(form, el("div", { class: "card" }, el("h2", {}, "Activity"), el("div", { id: "log" })));
+form.append(grid, el("div", { class: "row", style: "margin-top:16px" }, go), out);
+app.append(form, activityCard());
 
 const v = (id: string) => ($(`#${id}`) as HTMLInputElement).value;
 const decimals = async (t: Address) => Number(await client.readContract({ address: t, abi: pealTAbi, functionName: "decimals" }));

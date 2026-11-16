@@ -1,0 +1,42 @@
+{
+  "network": "qorechain-diana",
+  "purpose": "The visitors' open demo auction: anyone may bid with PEAL-T from the demo faucet, using a guest account in the browser",
+  "auction": "0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4",
+  "issuer": "0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40",
+  "terms": "50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD in 8 steps, bond 1 PEAL-T, at most 20 bids, committee 2 of 3",
+  "biddingUntil": "2026-11-23T15:27:59Z",
+  "releasesUntil": "2026-11-24T15:27:59Z",
+  "command": "npm run testnet -- create --buyback --demo --commit-seconds 604800 --release-seconds 86400 --max-bids 20",
+  "txs": {
+    "openWindow": "E0664EF331E3211292B4011A5A0A26E95C61C3FFCFA84EE87B966C1B310D076A",
+    "approveSupply": "0xc98a3bf12e2ddcb14448b2a0ac96a2665df5e95864b1ef0eeb9cde60cc0e244e",
+    "createAuction": "0x6fa21738b3d98a4bb82a93c5eb200143fa9cd75d83788584f44dbb944edb7f45"
+  },
+  "gas": {
+    "approveSupply": "46342",
+    "createAuction": "685770"
+  },
+  "liveGuestProof": {
+    "what": "A guest account driven through the production build (vercel.json headers and rewrites, via npm run web:preview) in headless Chromium: register the ML-DSA-87 key, claim 1,000 PEAL-T in a 1-tx window, then approve + commitBid of a bid sealed in the browser in a 2-tx window",
+    "command": "npx tsx scripts/testnet/guest-proof.ts",
+    "guest": {
+      "evm": "0x6B28B82C2642834936fFF3b342c8074C99E008d9",
+      "native": "qor1dv5tstpxg2p5jdhl7we59jq8fjv7qzxe89zyjt"
+    },
+    "funding": {
+      "note": "test funding only, by decision of the orchestrator: 2 QOR from the deployer; real visitors fund themselves from the faucet",
+      "tx": "076361BFF8615144866FE78635C11AEC2216D8722EF5F9CEFD9848AEABDA007A"
+    },
+    "txs": {
+      "registerPqcKey": "3D1DB52D083E2C195971018DB786DB60242716DCC79672897643A7D1D03A5A36",
+      "openWindowFaucet": "35CBD38993CC089BB852E559357C69A5BB1D58D49E7E72F8C28A4F031D7E4F2D",
+      "faucetClaim": "B4C17E4861DF4C484F6F36995DE7B6D5A4F1BB98A040EB127B7EAAE4778FEADE",
+      "openWindowBid": "E5BF520812899880164FDE871C1D68C2DC43B9D9BE52A23A6B34D98D91100B07",
+      "approve": "2FA7CE34E76CBC22627FCC00894B2E60C5EF8CAF9BD5165936FCAE7160685F57",
+      "commitBid": "0x6041fd76a6f919f43f34e5780a575ad7a8c3d1c11cc201792f92c37dbc0d7ba3",
+      "commitBidNative": "6F874FE06CE37981A3D2CEA984275DE1DE8DDB36CBF29004F264DB50A10661C4"
+    },
+    "bid": "10 fUSD at most 1.25 PEAL-T each: escrow 12.5 + bond 1 PEAL-T",
+    "qorSpent": "0.513393 (2 \u2192 1.486607)"
+  }
+}

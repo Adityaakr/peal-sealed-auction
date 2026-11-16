@@ -3,12 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Auction results</title>
-    <link rel="stylesheet" href="./src/style.css" />
+    <title>Auction results · Peal Sealed Auction</title>
+    <meta name="description" content="Peal Sealed Auction: uniform-price sealed bids on QoreChain that no single key holder can open before the close." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="./src/styles.css" />
   </head>
-  <body>
-    <nav id="top"></nav>
-    <main id="app"><div class="card">Loading…</div></main>
+  <body class="app">
+    <header id="top"></header>
+    <main id="app" class="wrap"><div class="card"><div class="skeleton"></div><div class="skeleton" style="width:60%;margin-top:10px"></div></div></main>
+    <footer class="app-foot"></footer>
     <script type="module" src="./src/results.ts"></script>
   </body>
 </html>

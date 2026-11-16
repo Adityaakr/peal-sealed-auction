@@ -6,6 +6,8 @@
  *   npm run testnet -- deploy                  deploy, register the committee, write configs
  *   npm run testnet -- demo                    one whole sealed auction with the real precompiles
  *   npm run testnet -- create                  only open an auction (default 15 min bidding, 15 min releases)
+ *   npm run testnet -- create --buyback --demo --commit-seconds 604800 --release-seconds 86400 --max-bids 20
+ *                                              the visitors' open demo: 50 fUSD for faucet PEAL-T, written to the pages' config
  *   npm run testnet -- settle <auction>        wait for the close, 2 releases, open, finalize
  *   npm run testnet -- window <name> <auction> open the scoped window an account needs for the web pages
  *   npm run testnet -- close <auction>         close an auction nobody bid on and return its supply

@@ -1,124 +1,211 @@
 /**
  * Results page: state, releases, bids as the contract opened them, the clearing
- * price, and the permissionless steps (open, finalize, claims) anyone can call.
+ * price, and the permissionless steps (close, open, finalize, claims) anyone can
+ * call. Funds always go to the bidder or the issuer, whoever sends the call.
  */
-import { createTestClient, encodeFunctionData, http, type Address } from "viem";
+import { createTestClient, encodeFunctionData, http, type Address, type Hex } from "viem";
 import { pealTAbi, sealedAuctionAbi } from "../../../client/abi.ts";
-import { $, accountPicker, auctionSummary, chainOf, el, fmt, guard, header, loadConfig, logLine, publicClientOf, send, short, type DevAccount } from "./common.ts";
+import {
+  $,
+  accountPicker,
+  activityCard,
+  auctionSummary,
+  carry,
+  chainOf,
+  el,
+  fail,
+  fmt,
+  guard,
+  header,
+  loadConfig,
+  logLine,
+  pageHead,
+  publicClientOf,
+  runCalls,
+  short,
+  STATE_WORDS,
+  type Actor,
+} from "./common.ts";
+import { chip, duration, h } from "./ui.ts";
+import type { Call } from "./wallet/guest.ts";
 
-const cfg = await loadConfig();
-header("Auction results", cfg);
-const client = publicClientOf(cfg);
-const app = $("#app");
-if (!cfg.auction) {
-  app.replaceChildren(el("div", { class: "card" }, "No auction selected: open one from the home page."));
-  throw new Error("no auction");
-}
-const auction = cfg.auction;
-const read = <T>(functionName: string, args: unknown[] = []) =>
-  client.readContract({ address: auction, abi: sealedAuctionAbi, functionName, args } as never) as Promise<T>;
-const STATUS = ["pending", "opened", "excluded", "unopenable"];
+const STATUS = ["sealed", "opened", "excluded", "unopenable"];
 const EXCL = ["", "malformed", "below minimum", "over address cap", "escrow short", "no key", "no key after all releases"];
 
-const summaryCard = el("div", { class: "card", id: "summary" });
-const bidsCard = el("div", { class: "card" }, el("h2", {}, "Bids"), el("div", { class: "tablewrap", id: "bids" }));
-app.replaceChildren(summaryCard, bidsCard);
+try {
+  await main();
+} catch (e) {
+  fail(e);
+}
 
-let actor: DevAccount | undefined;
-accountPicker(cfg, app, (d) => (actor = d));
-const actions = el("div", { class: "card" }, el("h2", {}, "Permissionless steps"), el("p", { class: "muted" }, "Anyone may run these; funds always go to the bidder or the issuer."));
-const btn = (id: string, label: string) => el("button", { id }, label) as HTMLButtonElement;
-const bClose = btn("close", "Close bidding");
-const bOpen = btn("open-bids", "Open all bids");
-const bFinal = btn("finalize", "Finalize");
-const bClaim = btn("claim-all", "Pay out every bid and the issuer");
-const row = el("div", { class: "row" }, bClose, bOpen, bFinal, bClaim);
-if (cfg.network === "local") {
-  const bWarp = btn("warp", "Local: skip 1 hour");
-  row.append(bWarp);
-  bWarp.onclick = () =>
-    guard(bWarp, async () => {
-      const t = createTestClient({ chain: chainOf(cfg), mode: "anvil", transport: http(cfg.evmRpc) });
-      await t.increaseTime({ seconds: 3601 });
-      await t.mine({ blocks: 1 });
-      logLine("local chain moved 1 hour ahead", "info");
+async function main(): Promise<void> {
+  const cfg = await loadConfig();
+  header("Auction results", cfg);
+  const client = publicClientOf(cfg);
+  const app = $("#app");
+  if (!cfg.auction) {
+    app.replaceChildren(pageHead("Results", "Auction results"), h("div.note", "No auction selected. ", h("a", { href: `./auctions.html${carry(cfg)}` }, "Pick one from the auctions"), "."));
+    return;
+  }
+  const auction = cfg.auction;
+  const read = <T>(functionName: string, args: unknown[] = []) =>
+    client.readContract({ address: auction, abi: sealedAuctionAbi, functionName, args } as never) as Promise<T>;
+
+  const summaryCard = el("div", { id: "summary" });
+  const bidsCard = el("div", { class: "card flush" }, el("div", { class: "card-pad" }, el("h2", {}, "Bids")), el("div", { class: "table-wrap", id: "bids" }));
+  app.replaceChildren(
+    pageHead("Results", "Auction results", "Every bid as the contract opened it, the clearing price, and the steps anyone may run. Funds always go to the bidder or the issuer."),
+    summaryCard,
+    bidsCard,
+  );
+
+  let actor: Actor | undefined;
+  accountPicker(
+    cfg,
+    app,
+    (a) => {
+      actor = a;
+      void render();
+    },
+    { guest: true, role: "anyone" },
+  );
+  const actions = el(
+    "div",
+    { class: "card" },
+    el("h2", {}, "Permissionless steps"),
+    el("p", { class: "muted small" }, "Anyone may run these, in this order. Releases come from the committee members themselves."),
+  );
+  const btn = (id: string, label: string, primary = false) => el("button", { id, class: primary ? "" : "secondary" }, label) as HTMLButtonElement;
+  const bClose = btn("close", "Close bidding");
+  const bOpen = btn("open-bids", "Open all bids");
+  const bFinal = btn("finalize", "Finalize");
+  const bMine = btn("claim-mine", "Claim my payout");
+  const bClaim = btn("claim-all", "Pay out every bid and the issuer");
+  const row = el("div", { class: "row" }, bClose, bOpen, bFinal, bMine, bClaim);
+  if (cfg.network === "local") {
+    const bWarp = btn("warp", "Local: skip 1 hour");
+    row.append(bWarp);
+    bWarp.onclick = () =>
+      guard(bWarp, async () => {
+        const t = createTestClient({ chain: chainOf(cfg), mode: "anvil", transport: http(cfg.evmRpc) });
+        await t.increaseTime({ seconds: 3601 });
+        await t.mine({ blocks: 1 });
+        logLine("local chain moved 1 hour ahead", "info");
+        await render();
+      });
+  }
+  actions.append(row);
+  app.append(actions, activityCard());
+
+  const sendAll = async (title: string, calls: Call[]): Promise<Hex[]> => {
+    if (!actor) throw new Error("choose an account first");
+    if (!calls.length) throw new Error("nothing to send");
+    return runCalls(cfg, actor, title, calls);
+  };
+  const one = (label: string, functionName: string, args: unknown[] = []): Call => ({
+    to: auction,
+    data: encodeFunctionData({ abi: sealedAuctionAbi, functionName, args } as never),
+    label,
+  });
+  const tx = (b: HTMLButtonElement, what: string, call: () => Promise<Call>) =>
+    (b.onclick = () =>
+      guard(b, async () => {
+        const [h0] = await sendAll(what, [await call()]);
+        logLine(`${what}: tx ${short(h0!)}`, "ok");
+        await render();
+      }));
+  tx(bClose, "bidding closed", async () => one("Close bidding", "closeCommit"));
+  tx(bOpen, "bids opened", async () => {
+    const n = await read<number>("bidCount");
+    return one("Open all bids", "openBids", [Array.from({ length: Number(n) }, (_, i) => BigInt(i))]);
+  });
+  tx(bFinal, "finalized", async () => one("Finalize", "finalize"));
+
+  type B = { bidder: Address; ct: Hex; status: number; exclusion: number; quantity: bigint; tick: number; escrow: bigint; bondBurned: boolean; claimed: boolean };
+  const unclaimed = async (mine: boolean): Promise<Call[]> => {
+    const n = Number(await read<number>("bidCount"));
+    const bids = await Promise.all(Array.from({ length: n }, (_, i) => read<B>("getBid", [BigInt(i)])));
+    return bids.flatMap((b, i) => (!b.claimed && (!mine || b.bidder.toLowerCase() === actor?.address.toLowerCase()) ? [one(`Pay out bid ${i}`, "claim", [BigInt(i)])] : []));
+  };
+  bMine.onclick = () =>
+    guard(bMine, async () => {
+      const calls = await unclaimed(true);
+      if (!calls.length) throw new Error("this account has no unpaid bids here");
+      await sendAll("Claim my payout", calls);
+      logLine(`paid out ${calls.length} of my bid${calls.length > 1 ? "s" : ""}`, "ok");
       await render();
     });
-}
-actions.append(row);
-app.append(actions, el("div", { class: "card" }, el("h2", {}, "Activity"), el("div", { id: "log" })));
-
-const tx = (b: HTMLButtonElement, what: string, data: () => Promise<`0x${string}`>) =>
-  (b.onclick = () =>
-    guard(b, async () => {
-      if (!actor) throw new Error("choose an account first");
-      const h = await send(cfg, actor, { to: auction, data: await data() });
-      logLine(`${what}: tx ${short(h)}`, "ok");
+  bClaim.onclick = () =>
+    guard(bClaim, async () => {
+      const calls = await unclaimed(false);
+      const state = Number(await read<number>("state"));
+      if (state === 4 && !(await read<boolean>("proceedsClaimed"))) calls.push(one("Pay the issuer's proceeds", "claimProceeds"));
+      if ((state === 4 || state === 5) && !(await read<boolean>("unsoldClaimed"))) calls.push(one("Return the unsold supply", "claimUnsold"));
+      if (calls.length) await sendAll("Pay out everyone", calls);
+      logLine("every bid and the issuer paid out", "ok");
       await render();
-    }));
-tx(bClose, "bidding closed", async () => encodeFunctionData({ abi: sealedAuctionAbi, functionName: "closeCommit" }));
-tx(bOpen, "bids opened", async () => {
-  const n = await read<number>("bidCount");
-  return encodeFunctionData({ abi: sealedAuctionAbi, functionName: "openBids", args: [Array.from({ length: Number(n) }, (_, i) => BigInt(i))] });
-});
-tx(bFinal, "finalized", async () => encodeFunctionData({ abi: sealedAuctionAbi, functionName: "finalize" }));
-bClaim.onclick = () =>
-  guard(bClaim, async () => {
-    if (!actor) throw new Error("choose an account first");
-    const n = Number(await read<number>("bidCount"));
-    const state = Number(await read<number>("state"));
-    for (let i = 0; i < n; i++) {
-      const b = await read<{ claimed: boolean }>("getBid", [BigInt(i)]);
-      if (!b.claimed) await send(cfg, actor, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "claim", args: [BigInt(i)] }) });
-    }
-    if (state === 4 && !(await read<boolean>("proceedsClaimed")))
-      await send(cfg, actor, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "claimProceeds" }) });
-    if ((state === 4 || state === 5) && !(await read<boolean>("unsoldClaimed")))
-      await send(cfg, actor, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "claimUnsold" }) });
-    logLine("every bid and the issuer paid out", "ok");
-    await render();
-  });
+    });
 
-async function render(): Promise<void> {
-  const s = await auctionSummary(client, auction);
-  const dec = async (t: Address) => Number(await client.readContract({ address: t, abi: pealTAbi, functionName: "decimals" }));
-  const sym = (t: Address) => client.readContract({ address: t, abi: pealTAbi, functionName: "symbol" });
-  const [sd, qd, ss, qs] = await Promise.all([dec(s.cfg.saleToken), dec(s.cfg.quoteToken), sym(s.cfg.saleToken), sym(s.cfg.quoteToken)]);
-  const kv = el("div", { class: "kv" });
-  const add = (k: string, v: string, id?: string) => kv.append(el("div", {}, k), el("div", { class: "mono", ...(id ? { id } : {}) }, v));
-  add("auction", auction);
-  add("state", s.state, "state");
-  add("releases", s.members.map((m, i) => `${i + 1}:${(s.releaseMask >> i) & 1 ? "✓" : "–"}`).join("  ") + `  (need ${s.threshold})`, "releases");
-  if (s.state === "Settled") {
-    const [price, sold, proceeds] = await Promise.all([read<bigint>("clearingPrice"), read<bigint>("totalSold"), read<bigint>("grossProceeds")]);
-    add("clearing price", `${fmt(price, qd)} ${qs} per ${ss}`, "price");
-    add("sold", `${fmt(sold, sd)} ${ss}`);
-    add("proceeds", `${fmt(proceeds, qd)} ${qs}`);
-  }
-  type B = { bidder: Address; ct: `0x${string}`; status: number; exclusion: number; quantity: bigint; tick: number; escrow: bigint; bondBurned: boolean; claimed: boolean };
-  const ids = Array.from({ length: s.bidCount }, (_, i) => BigInt(i));
-  const [bids, allocs] = await Promise.all([
-    Promise.all(ids.map((i) => read<B>("getBid", [i]))),
-    Promise.all(ids.map((i) => (s.state === "Settled" ? read<bigint>("allocationOf", [i]) : Promise.resolve(0n)))),
-  ]);
-  const rows = bids.map((b, i) => {
-    const openedBid = b.status === 1 || b.status === 2;
-    return el(
-      "tr",
-      {},
-      el("td", {}, String(i)),
-      el("td", { class: "mono" }, short(b.bidder, 6)),
-      el("td", { class: b.status === 1 ? "ok" : b.status >= 2 ? "bad" : "" }, STATUS[b.status]! + (b.exclusion ? ` (${EXCL[b.exclusion]})` : "") + (b.bondBurned ? ", bond burned" : "")),
-      el("td", { class: "mono" }, openedBid ? `${fmt(b.quantity, sd)} @ tick ${b.tick}` : `sealed ${short(b.ct, 6)}`),
-      el("td", { class: "mono" }, fmt(b.escrow, qd)),
-      el("td", { class: "mono" }, s.state === "Settled" ? fmt(allocs[i]!, sd) : "–"),
-      el("td", {}, b.claimed ? "paid" : ""),
+  async function render(): Promise<void> {
+    const [s, now] = await Promise.all([auctionSummary(client, auction), client.getBlock().then((b) => b.timestamp)]);
+    const dec = async (t: Address) => Number(await client.readContract({ address: t, abi: pealTAbi, functionName: "decimals" }));
+    const sym = (t: Address) => client.readContract({ address: t, abi: pealTAbi, functionName: "symbol" });
+    const [sd, qd, ss, qs] = await Promise.all([dec(s.cfg.saleToken), dec(s.cfg.quoteToken), sym(s.cfg.saleToken), sym(s.cfg.quoteToken)]);
+    const tile = (label: string, value: Node | string, sub?: Node | string, id?: string) =>
+      h("div.card.stat", h("div.label", label), h("div.value.value-sm", id ? { id } : undefined, value), sub ? h("div.sub", sub) : null);
+    const releases = h(
+      "span.release-dots",
+      ...s.members.map((_, i) => h(`i${(s.releaseMask >> i) & 1 ? ".on" : ""}`, { title: `member ${i + 1}: ${(s.releaseMask >> i) & 1 ? "released" : "not yet"}` })),
     );
-  });
-  summaryCard.replaceChildren(el("h1", {}, "Auction results"), kv);
-  $("#bids").replaceChildren(
-    el("table", {}, el("tr", {}, ...["bid", "bidder", "status", "opened to", "escrow", "allocation", ""].map((h) => el("th", {}, h))), ...rows),
-  );
-}
+    const released = s.members.filter((_, i) => (s.releaseMask >> i) & 1).length;
+    let priceTile: HTMLElement;
+    if (s.state === "Settled") {
+      const [price, sold, proceeds] = await Promise.all([read<bigint>("clearingPrice"), read<bigint>("totalSold"), read<bigint>("grossProceeds")]);
+      priceTile = tile("Clearing price", `${fmt(price, qd)} ${qs} per ${ss}`, `${fmt(sold, sd)} ${ss} sold for ${fmt(proceeds, qd)} ${qs}`, "price");
+    } else {
+      priceTile = tile("Clearing price", "not yet", s.state === "CommitOpen" ? `bidding ${now < s.cfg.endTime ? `closes in ${duration(s.cfg.endTime - now)}` : "has ended; anyone may close"}` : "after the bids are opened");
+    }
+    summaryCard.replaceChildren(
+      h(
+        "div.grid.grid-4.tiles",
+        tile("State", el("span", { id: "state" }, s.state), STATE_WORDS[s.state]!),
+        tile("Releases", h("span", { id: "releases" }, releases, ` ${released} of ${s.members.length}`), `${s.threshold} needed to open every bid`),
+        tile("Bids", String(s.bidCount), `${fmt(s.cfg.totalSupply, sd)} ${ss} offered`),
+        priceTile,
+      ),
+      h("div.small.muted.auction-line", "Auction ", el("span", { class: "mono" }, auction), " · ", h("a", { href: `./bidder.html${carry(cfg)}` }, "bid page")),
+    );
+    const ids = Array.from({ length: s.bidCount }, (_, i) => BigInt(i));
+    const [bids, allocs] = await Promise.all([
+      Promise.all(ids.map((i) => read<B>("getBid", [i]))),
+      Promise.all(ids.map((i) => (s.state === "Settled" ? read<bigint>("allocationOf", [i]) : Promise.resolve(0n)))),
+    ]);
+    const rows = bids.map((b, i) => {
+      const openedBid = b.status === 1 || b.status === 2;
+      const mine = actor && b.bidder.toLowerCase() === actor.address.toLowerCase();
+      const price = s.cfg.reservePrice + BigInt(b.tick) * s.cfg.tickSize;
+      const statusChip = chip(STATUS[b.status]! + (b.exclusion ? `: ${EXCL[b.exclusion]}` : "") + (b.bondBurned ? ", bond burned" : ""), b.status === 1 ? "ok" : b.status >= 2 ? "bad" : "wait", b.status === 0 ? "lock" : undefined);
+      return el(
+        "tr",
+        mine ? { class: "mine" } : {},
+        el("td", {}, String(i)),
+        el("td", { class: "mono" }, short(b.bidder, 6), ...(mine ? [" ", chip("you", "plain")] : [])),
+        el("td", {}, statusChip),
+        el("td", { class: "mono" }, openedBid ? `${fmt(b.quantity, sd)} ${ss} at ≤ ${fmt(price, qd)}` : `sealed ${short(b.ct, 6)}`),
+        el("td", { class: "mono num" }, fmt(b.escrow, qd)),
+        el("td", { class: "mono num" }, s.state === "Settled" ? fmt(allocs[i]!, sd) : "–"),
+        el("td", {}, b.claimed ? "paid" : ""),
+      );
+    });
+    $("#bids").replaceChildren(
+      el(
+        "table",
+        {},
+        el("thead", {}, el("tr", {}, ...["Bid", "Bidder", "Status", "Opened to", `Escrow (${qs})`, `Allocation (${ss})`, ""].map((x, i) => el("th", i === 4 || i === 5 ? { class: "num" } : {}, x)))),
+        el("tbody", {}, ...(rows.length ? rows : [el("tr", {}, el("td", { colspan: "7", class: "empty" }, "No bids yet."))])),
+      ),
+    );
+  }
 
-await render();
+  await render();
+}

@@ -50,7 +50,11 @@ async function waitUntil(t: bigint, what: string): Promise<void> {
 
 type Evm = (n: Named, label: string, to: Address, abi: Abi, functionName: string, args?: unknown[]) => Promise<unknown>;
 
-/** The deployer (as issuer) opens an auction of 100 PEAL-T for fUSD on the deployed factory. */
+/**
+ * The deployer (as issuer) opens an auction on the deployed factory: by default
+ * 100 PEAL-T for fUSD; with `buyback`, 50 fUSD for PEAL-T, the visitors' demo,
+ * which anyone can bid in with PEAL-T from the demo faucet.
+ */
 async function createAuction(
   d: { pealt: Address; fusd: Address; factory: Address; committeeSetId: Hex },
   deployer: Named,
@@ -58,34 +62,38 @@ async function createAuction(
   release: bigint,
   evm: Evm,
   numTicks = 8,
+  opts: { buyback?: boolean; maxBids?: number } = {},
 ): Promise<{ auction: Address; cfg: { endTime: bigint; releaseDeadline: bigint } }> {
   const client = publicClient();
   const now = (await client.getBlock()).timestamp;
-  const name = "Peal Sealed Auction testnet demo";
-  const details = "100 PEAL-T for fUSD, 2-of-3 committee";
+  const buyback = opts.buyback ?? false;
+  const name = buyback ? "Peal Sealed Auction: open demo" : "Peal Sealed Auction testnet demo";
+  const details = buyback ? "50 fUSD for PEAL-T, open to visitors, 2-of-3 committee" : "100 PEAL-T for fUSD, 2-of-3 committee";
   const cfg = {
     issuer: deployer.evm,
-    saleToken: d.pealt,
-    quoteToken: d.fusd,
-    totalSupply: parseUnits("100", 18),
-    saleDecimals: 18,
-    reservePrice: 1_000_000n,
-    tickSize: 500_000n,
+    saleToken: buyback ? d.fusd : d.pealt,
+    quoteToken: buyback ? d.pealt : d.fusd,
+    totalSupply: buyback ? parseUnits("50", 6) : parseUnits("100", 18),
+    saleDecimals: buyback ? 6 : 18,
+    // Per whole sale token, in quote base units: 1.00 fUSD + 0.50 steps, or 0.50 PEAL-T + 0.25 steps.
+    reservePrice: buyback ? parseUnits("0.5", 18) : 1_000_000n,
+    tickSize: buyback ? parseUnits("0.25", 18) : 500_000n,
     numTicks,
     startTime: now,
     endTime: now + commit,
     releaseDeadline: now + commit + release,
     minBidQuantity: 1n,
     maxQuantityPerAddress: 0n,
-    maxBids: 32,
-    bidBond: 1_000_000n,
+    // openBids for every bid must fit one 3M-gas window transaction when settling (about 120k a bid).
+    maxBids: opts.maxBids ?? 32,
+    bidBond: buyback ? parseUnits("1", 18) : 1_000_000n,
     protocolFeeBps: 0,
     feeRecipient: "0x0000000000000000000000000000000000000000" as Address,
     committeeSetId: d.committeeSetId,
     metadataHash: (await client.readContract({ address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "metadataHash", args: [name, details] })) as Hex,
   };
-  await scopedWindow(deployer, [d.pealt, d.factory], 2, 1_500_000n);
-  await evm(deployer, "approveSupply", d.pealt, artifact("PealT.sol", "PealT").abi, "approve", [d.factory, cfg.totalSupply]);
+  await scopedWindow(deployer, [cfg.saleToken, d.factory], 2, 1_500_000n);
+  await evm(deployer, "approveSupply", cfg.saleToken, artifact("PealT.sol", "PealT").abi, "approve", [d.factory, cfg.totalSupply]);
   const sim = await client.simulateContract({ account: deployer.evm, address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "createAuction", args: [cfg, name, details] });
   await evm(deployer, "createAuction", d.factory, sealedAuctionFactoryAbi as Abi, "createAuction", [cfg, name, details]);
   const auction = sim.result as Address;
@@ -97,7 +105,14 @@ async function createAuction(
 export async function create(argv: string[]): Promise<void> {
   const { values } = parseArgs({
     args: argv,
-    options: { "commit-seconds": { type: "string", default: "900" }, "release-seconds": { type: "string", default: "900" }, ticks: { type: "string", default: "8" } },
+    options: {
+      "commit-seconds": { type: "string", default: "900" },
+      "release-seconds": { type: "string", default: "900" },
+      ticks: { type: "string", default: "8" },
+      buyback: { type: "boolean", default: false },
+      "max-bids": { type: "string" },
+      demo: { type: "boolean", default: false },
+    },
   });
   const d = JSON.parse((await import("node:fs")).readFileSync(join(ROOT, "deployments", "qorechain-diana.json"), "utf8"));
   const deployer = await load("deployer");
@@ -106,7 +121,18 @@ export async function create(argv: string[]): Promise<void> {
     console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
     return r;
   };
-  await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks));
+  const { auction } = await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
+    buyback: values.buyback,
+    maxBids: values["max-bids"] ? Number(values["max-bids"]) : undefined,
+  });
+  if (values.demo) {
+    // Point the pages (and the hosted site) at it as the visitors' open demo auction.
+    const path = join(ROOT, "apps", "web", "public", "config.testnet.json");
+    const c = JSON.parse(readFileSync(path, "utf8"));
+    c.demoAuction = auction;
+    writeFileSync(path, `${JSON.stringify(c, null, 2)}\n`);
+    console.log(`wrote demoAuction to ${path}`);
+  }
 }
 
 /**

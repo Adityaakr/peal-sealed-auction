@@ -1,76 +1,29 @@
 /**
- * Shared by the pages: configuration, dev accounts, clients and small UI helpers.
+ * Shared by the app pages: configuration, accounts, clients, the page chrome and
+ * small UI helpers.
  *
- * Accounts are "dev accounts": a testnet or local mnemonic typed into the page
- * (or picked from the local stack's throwaway accounts). The mnemonic stays in
- * memory only; it is never stored, logged or sent anywhere. Every key it
- * derives (secp256k1, ML-DSA-87, ML-KEM-1024 + X25519) is used in this browser.
- * This mode is for the testnet demo only (design decision D8: no public bidding).
+ * Two kinds of account act on these pages:
+ * - the **guest account** (src/wallet/): a testnet key pair made in this browser
+ *   and kept in its storage, which registers its ML-DSA-87 key and opens scoped
+ *   windows by itself. Visitors bid with it.
+ * - a **dev account**: a mnemonic typed into the page (or one of the local
+ *   stack's throwaway accounts). It stays in memory only; it is never stored,
+ *   logged or sent anywhere. The demo committee and issuer use these; on the
+ *   testnet the account needs a window opened with the CLI first.
+ * Every key either derives (secp256k1, ML-DSA-87, ML-KEM-1024 + X25519) is used
+ * in this browser only.
  */
 import { deriveSealKeys, type SealKeyPair } from "@qorechain/qoreseal";
 import { deriveUnifiedAccount, type UnifiedAccount } from "@qorechain/sdk";
-import {
-  createPublicClient,
-  createWalletClient,
-  defineChain,
-  getAddress,
-  http,
-  type Address,
-  type Chain,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-} from "viem";
+import { createWalletClient, getAddress, http, type Address, type Hex, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sealedAuctionAbi } from "../../../client/abi.ts";
+import { carry, chainOf, netOnly, publicClientOf, startWallet, type AppConfig } from "./config.ts";
+import { h, hash, icon, mark } from "./ui.ts";
+import { walletButton } from "./wallet/panel.ts";
+import { act, openPanel, state as wallet, subscribe } from "./wallet/store.ts";
+import type { Call } from "./wallet/guest.ts";
 
-export interface AppConfig {
-  network: "local" | "testnet";
-  chainId: number;
-  /** Absolute URL, or a path on this origin (the dev server proxies /evm and /rest). */
-  evmRpc: string;
-  rest: string;
-  registry: Address;
-  factory: Address;
-  fusd: Address;
-  pealt: Address;
-  committeeSetId?: Hex;
-  /** Committee cards to fall back on if the node pruned the MemberJoined events. */
-  committeeCards?: string;
-  auction?: Address;
-  /** Local stack only: where the harness records ML-DSA-87 verdicts for the precompile stand-in. */
-  attestUrl?: string;
-  /** Local stack only: throwaway accounts. */
-  devAccounts?: { label: string; mnemonic: string }[];
-}
-
-const abs = (u: string) => new URL(u, location.origin).toString();
-
-export async function loadConfig(): Promise<AppConfig> {
-  const q = new URLSearchParams(location.search);
-  const net = q.get("net") ?? "local";
-  const res = await fetch(`./config.${net === "testnet" ? "testnet" : "local"}.json`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`no config for "${net}" (run \`npm run local:stack\` for a local one)`);
-  const cfg = (await res.json()) as AppConfig;
-  const a = q.get("auction");
-  if (a) cfg.auction = getAddress(a);
-  cfg.evmRpc = abs(cfg.evmRpc);
-  cfg.rest = abs(cfg.rest).replace(/\/+$/, "");
-  return cfg;
-}
-
-export function chainOf(cfg: AppConfig): Chain {
-  return defineChain({
-    id: cfg.chainId,
-    name: cfg.network === "local" ? "Local (anvil)" : "QoreChain Testnet",
-    nativeCurrency: { name: "QOR", symbol: "QOR", decimals: 18 },
-    rpcUrls: { default: { http: [cfg.evmRpc] } },
-  });
-}
-
-export function publicClientOf(cfg: AppConfig): PublicClient {
-  return createPublicClient({ chain: chainOf(cfg), transport: http(cfg.evmRpc) }) as PublicClient;
-}
+export * from "./config.ts";
 
 export interface DevAccount {
   acc: UnifiedAccount;
@@ -101,32 +54,23 @@ export async function send(cfg: AppConfig, d: DevAccount, tx: { to: Address; dat
   return hash;
 }
 
-export const STATES = ["Created", "Funded", "CommitOpen", "Closed", "Settled", "Failed", "Cancelled"] as const;
+/** Whoever acts on a page: the browser's guest account, or a dev account. */
+export type Actor = { kind: "guest"; address: Address } | { kind: "dev"; address: Address; dev: DevAccount };
 
-export async function auctionSummary(client: PublicClient, auction: Address) {
-  const read = <T>(functionName: string, args: unknown[] = []) =>
-    client.readContract({ address: auction, abi: sealedAuctionAbi, functionName, args } as never) as Promise<T>;
-  const [state, cfg, bidCount, releaseMask, threshold, members] = await Promise.all([
-    read<number>("state"),
-    read<{
-      totalSupply: bigint;
-      reservePrice: bigint;
-      tickSize: bigint;
-      numTicks: number;
-      endTime: bigint;
-      releaseDeadline: bigint;
-      bidBond: bigint;
-      saleToken: Address;
-      quoteToken: Address;
-      issuer: Address;
-      committeeSetId: Hex;
-    }>("config"),
-    read<number>("bidCount"),
-    read<number>("releaseMask"),
-    read<number>("threshold"),
-    read<readonly Address[]>("members"),
-  ]);
-  return { state: STATES[Number(state)]!, cfg, bidCount: Number(bidCount), releaseMask: Number(releaseMask), threshold: Number(threshold), members };
+/**
+ * Send `calls` as the actor. A guest opens one window scoped to the calls'
+ * contracts and logs each step in the wallet drawer; a dev account sends them in
+ * order (on the testnet inside a window it opened with the CLI).
+ */
+export async function runCalls(cfg: AppConfig, actor: Actor, title: string, calls: Call[]): Promise<Hex[]> {
+  if (actor.kind === "dev") {
+    const out: Hex[] = [];
+    for (const c of calls) out.push(await send(cfg, actor.dev, c));
+    return out;
+  }
+  const receipts = await act(title, calls);
+  if (!receipts) throw new Error(wallet.error ?? `${title} did not complete`);
+  return receipts.map((r) => r.transactionHash);
 }
 
 // ------------------------------------------------------------------ UI
@@ -168,52 +112,148 @@ export async function guard(btn: HTMLButtonElement, f: () => Promise<void>): Pro
   }
 }
 
-/** The account picker: local throwaway accounts, or a pasted testnet mnemonic. */
-export function accountPicker(cfg: AppConfig, host: HTMLElement, onReady: (d: DevAccount) => void): void {
-  const box = el("div", { class: "card" });
-  box.append(el("h2", {}, "Dev account"));
-  box.append(
+/** A page heading: kicker, title and one line under it. */
+export function pageHead(kicker: string, title: string, sub?: string | Node): HTMLElement {
+  return h("div.page-head", h("div.kicker", kicker), h("h1.page-title", title), sub ? h("p.page-sub", sub) : null);
+}
+
+/** The activity card every app page ends with. */
+export function activityCard(): HTMLElement {
+  return el("div", { class: "card" }, el("h2", {}, "Activity"), el("div", { id: "log" }));
+}
+
+/**
+ * The "acting as" card: the browser's guest account (when `guest` is allowed),
+ * or a dev account (local throwaway accounts, or a pasted testnet mnemonic).
+ */
+export function accountPicker(cfg: AppConfig, host: HTMLElement, onReady: (a: Actor) => void, opts: { guest?: boolean; role?: string } = {}): void {
+  const allowGuest = opts.guest ?? false;
+  const box = el("div", { class: "card account" });
+  const who = el("div", { class: "mono who", id: "who" });
+  const whoLine = el("div", { class: "who-line" }, el("span", { class: "muted small" }, "Acting as"), who);
+  box.append(el("h2", {}, opts.role ? `Your account: ${opts.role}` : "Your account"), whoLine);
+  let current: Actor | undefined;
+  const choose = (a: Actor, label: string) => {
+    current = a;
+    who.textContent = a.address;
+    who.setAttribute("title", label);
+    onReady(a);
+  };
+
+  if (allowGuest) {
+    const g = el("div", { class: "guest-row" });
+    const drawGuest = () => {
+      const st = wallet.guestStatus;
+      if (st) {
+        const use = el("button", { id: "use-guest", class: "btn btn-small" }, "Use the guest account") as HTMLButtonElement;
+        use.onclick = () => choose({ kind: "guest", address: getAddress(st.evm) }, "guest account");
+        const inUse = current?.kind === "guest";
+        g.replaceChildren(
+          el("span", { class: "small" }, "Guest account in this browser "),
+          hash(st.evm, { label: "guest address" }),
+          inUse ? el("span", { class: "chip ok" }, icon("check"), "in use") : use,
+        );
+        if (!current && cfg.network === "testnet") choose({ kind: "guest", address: getAddress(st.evm) }, "guest account");
+      } else {
+        const make = el("button", { class: "btn btn-small btn-primary", id: "open-wallet" }, "Create a guest account") as HTMLButtonElement;
+        make.onclick = () => openPanel();
+        g.replaceChildren(el("span", { class: "small muted" }, wallet.ready ? "No guest account in this browser yet. " : "Reading this browser's guest account… "), make);
+      }
+    };
+    subscribe(drawGuest);
+    drawGuest();
+    box.append(g);
+  }
+
+  const dev = el("details", { class: "dev" });
+  if (!allowGuest || cfg.network === "local") dev.setAttribute("open", "");
+  dev.append(
+    el("summary", {}, cfg.network === "local" ? "Local throwaway accounts" : "Use a dev account (a testnet mnemonic)"),
     el(
       "p",
       { class: "warn" },
       cfg.network === "local"
-        ? "Local throwaway accounts from the local stack."
-        : "Testnet only. Paste a throwaway testnet mnemonic. It stays in this tab's memory and is never stored or sent.",
+        ? "Accounts from the local stack. Nothing here touches a real network."
+        : "Testnet only. Paste a throwaway testnet mnemonic; it stays in this tab's memory and is never stored or sent. On the testnet it needs a window opened with the CLI (npm run testnet -- window).",
     ),
   );
   const row = el("div", { class: "row" });
   let input: HTMLInputElement | HTMLSelectElement;
   if (cfg.devAccounts?.length) {
-    const sel = el("select", { id: "acct" }) as HTMLSelectElement;
+    const sel = el("select", { id: "acct", class: "input" }) as HTMLSelectElement;
     for (const a of cfg.devAccounts) sel.append(el("option", { value: a.mnemonic }, a.label));
     input = sel;
   } else {
-    input = el("input", { id: "acct", type: "password", placeholder: "24-word testnet mnemonic", autocomplete: "off" }) as HTMLInputElement;
+    input = el("input", { id: "acct", class: "input", type: "password", placeholder: "24-word testnet mnemonic", autocomplete: "off" }) as HTMLInputElement;
   }
   const btn = el("button", { id: "use-account" }, "Use account") as HTMLButtonElement;
-  const who = el("div", { class: "mono", id: "who" });
   row.append(input, btn);
-  box.append(row, who);
+  dev.append(row);
+  box.append(dev);
   host.append(box);
   btn.onclick = () =>
     guard(btn, async () => {
       const d = await devAccount(cfg, input.value);
-      who.textContent = d.address;
+      choose({ kind: "dev", address: d.address, dev: d }, "dev account");
       logLine(`account ${d.address} ready (keys derived in this browser)`, "ok");
-      onReady(d);
     });
 }
 
+// ------------------------------------------------------------------ chrome
+
+const TABS: { file: string; label: string }[] = [
+  { file: "auctions", label: "Auctions" },
+  { file: "bidder", label: "Bid" },
+  { file: "results", label: "Results" },
+  { file: "committee", label: "Committee" },
+  { file: "issuer", label: "Open an auction" },
+];
+
+/** Draw the app header (wordmark, network, wallet, tabs) and the footer, and mount the wallet. */
 export function header(title: string, cfg: AppConfig): void {
-  const q = location.search;
-  document.title = title;
-  $("#top").replaceChildren(
-    el("strong", {}, "Peal Sealed Auction"),
-    el("a", { href: `./index.html${q}` }, "Home"),
-    el("a", { href: `./issuer.html${q}` }, "Issue"),
-    el("a", { href: `./bidder.html${q}` }, "Bid"),
-    el("a", { href: `./committee.html${q}` }, "Committee"),
-    el("a", { href: `./results.html${q}` }, "Results"),
-    el("span", { class: "net" }, `${cfg.network} · chain ${cfg.chainId}`),
+  document.title = `${title} · Peal Sealed Auction`;
+  const page = location.pathname.split("/").pop()?.replace(/\.html$/, "") || "auctions";
+  const q = carry(cfg);
+  const pill = h(
+    `span.net-pill${cfg.network === "local" ? ".is-local" : ""}`,
+    { title: cfg.evmRpc },
+    h("span.net-dot"),
+    cfg.network === "local" ? "Local node" : "QoreChain testnet",
   );
+  startWallet(cfg);
+  $("#top").replaceChildren(
+    h(
+      "div.wrap",
+      h(
+        "div.site-header",
+        h("div.identity", h("a.wordmark", { href: `./${netOnly()}` }, mark("auction"), "Peal Sealed Auction"), h("div.tagline", "Sealed bids no single key holder can open before the close.")),
+        h("div.header-meta", pill, walletButton()),
+      ),
+      h(
+        "nav.tabs",
+        { "aria-label": "Sections" },
+        ...TABS.map((t) => h("a", { href: `./${t.file}.html${q}`, "aria-current": t.file === page ? "page" : undefined }, t.label)),
+      ),
+    ),
+  );
+  const foot = document.querySelector("footer.app-foot") ?? document.body.appendChild(h("footer.app-foot"));
+  foot.replaceChildren(
+    h(
+      "div.wrap",
+      h(
+        "div.site-footer",
+        "Bids are sealed in this browser: the plaintext never leaves the tab. A guest account, if you make one, lives only in this browser. ",
+        h("a", { href: "https://github.com/Adityaakr/peal-sealed-auction", target: "_blank", rel: "noopener" }, "Source"),
+        " · ",
+        h("a", { href: "https://github.com/Adityaakr/peal-sealed-auction/blob/main/THREAT_MODEL.md", target: "_blank", rel: "noopener" }, "Threat model"),
+      ),
+    ),
+  );
+}
+
+/** Show a page-level failure in words instead of a blank page. */
+export function fail(err: unknown): void {
+  const app = document.querySelector("#app");
+  const msg = err instanceof Error ? err.message.split("\n")[0]! : String(err);
+  app?.replaceChildren(el("div", { class: "note bad" }, `This page could not load: ${msg}`));
 }
