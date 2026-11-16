@@ -50,6 +50,7 @@ for (;;) {
       client,
       auction: values.auction as Address,
       me: { address: acc.evm as Address, pqc: acc.pqc, seal },
+      rest: process.env.QORE_REST_URL?.trim() || "https://api-testnet.qore.host",
       send,
       keeper: values.keeper,
       log: (l) => console.log(new Date().toISOString(), l),

@@ -32,6 +32,8 @@ export interface StepArgs {
   send: Send;
   /** Seconds the release signature stays valid. */
   releaseTtl?: bigint;
+  /** REST base URL: finds envelopes of smart-account bids, whose EVM logs are not indexed. */
+  rest?: string;
   /** Also open bids and finalize when the release window is over. */
   keeper?: boolean;
   /** Called with the exact signed bytes before the release is sent (local runs use it). */
@@ -69,7 +71,7 @@ export async function memberStep(a: StepArgs): Promise<StepResult> {
   if ((mask & (1 << (index - 1))) === 0) {
     if (now > cfg.releaseDeadline) return { kind: "too-late" };
     const chainId = BigInt(await a.client.getChainId());
-    const bids = await readBids(a.client, a.auction);
+    const bids = await readBids(a.client, a.auction, { rest: a.rest });
     const r = openMemberShares({ chainId, auction: a.auction, index, keys: a.me.seal, bids });
     for (const x of r.invalid) log(`member ${index}: bid ${x.bidId} flagged invalid (${x.reason})`);
     const deadline = now + (a.releaseTtl ?? 600n);

@@ -12,7 +12,7 @@
  * outsider's ML-DSA-87 key is simulated on the node (eth_call runs the real
  * pqcVerify) and must revert with ReleaseSignatureInvalid.
  */
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { closeEvmWindowMsg, deriveUnifiedAccount, fetchEvmWindow, generateMnemonic, openEvmWindowMsg, pqcSign } from "@qorechain/sdk";
@@ -142,6 +142,7 @@ export async function settle(auction: Address): Promise<void> {
       client,
       auction,
       me: { address: m.evm, pqc: m.acc.pqc, seal: m.seal },
+      rest: network().rest,
       send: async (tx) => (await sendEvm(m.acc, tx)).transactionHash,
       log: (l) => console.log(l),
     });
@@ -186,7 +187,9 @@ export async function demo(argv: string[]): Promise<void> {
   console.log(`auction ${auction}`);
 
   // 2. Bidders check the committee against the chain and REST, seal and commit.
-  const committee = await readCommittee(client, d.registry, d.committeeSetId);
+  const cardsFile = join(ROOT, "deployments", "committee-cards.json");
+  const fallback = existsSync(cardsFile) ? JSON.parse(readFileSync(cardsFile, "utf8")) : undefined;
+  const committee = await readCommittee(client, d.registry, d.committeeSetId, undefined, fallback);
   const recipients = await resolveCommittee(committee, { client, rest: network().rest });
   console.log(`committee verified: ${committee.members.map((m) => m.address).join(", ")}`);
   const plan: [Named, bigint, number][] = [
@@ -237,6 +240,7 @@ export async function demo(argv: string[]): Promise<void> {
       client,
       auction,
       me: { address: m.evm, pqc: m.acc.pqc, seal: m.seal },
+      rest: network().rest,
       send: async (tx) => {
         const rc = await sendEvm(m.acc, tx);
         gas[`${m.name}.submitRelease`] = rc.gasUsed.toString();

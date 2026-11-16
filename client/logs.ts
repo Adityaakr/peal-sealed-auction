@@ -6,6 +6,10 @@
  * chunks. With a known start block the chunks go forward from it; without one
  * they go backwards from the latest block until the expected number of events
  * is found (the contracts say how many there are: `bidCount`, the set size).
+ *
+ * The public node also prunes old blocks ("height N is not available, lowest
+ * height is M", about two hours of history on 2026-11-16), so a backwards scan
+ * stops at the lowest height the node still has.
  */
 import type { PublicClient } from "viem";
 
@@ -30,10 +34,25 @@ export async function collectLogs<T>(
     return out;
   }
   for (let to = latest, i = 0; out.length < want && i < maxChunks; i++) {
-    const from = to > MAX_LOG_RANGE ? to - MAX_LOG_RANGE : 0n;
-    out.unshift(...(await read(from, to)));
+    let from = to > MAX_LOG_RANGE ? to - MAX_LOG_RANGE : 0n;
+    try {
+      out.unshift(...(await read(from, to)));
+    } catch (err) {
+      // A pruned node refuses ranges below its lowest height: read what it still has, then stop.
+      const floor = lowestAvailable(err);
+      if (floor === undefined || floor > to) throw err;
+      from = floor;
+      out.unshift(...(await read(from, to)));
+      break;
+    }
     if (from === 0n) break;
     to = from - 1n;
   }
   return out;
+}
+
+/** The node's lowest available height, from a "height N is not available, lowest height is M" error. */
+export function lowestAvailable(err: unknown): bigint | undefined {
+  const m = /lowest height is (\d+)/.exec(err instanceof Error ? `${err.message} ${String((err as { details?: string }).details ?? "")}` : String(err));
+  return m ? BigInt(m[1]!) : undefined;
 }

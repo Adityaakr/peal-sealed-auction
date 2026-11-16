@@ -75,5 +75,5 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 - **QoreSeal 0.1.0 is a draft** pending external review.
 - **The web pages' dev-account mode** takes a testnet mnemonic in the page. The page never stores or sends it, but a compromised page or browser could read it. It is for throwaway testnet accounts in the demo only: no real funds, no public bidding.
 - **The local stand-ins accept anyone's verdict.** `OraclePqcVerify` and the `/local/attest` endpoint let anyone record a signature verdict. They exist only for local runs, are never deployed, and their source says so.
-- **The REST endpoint and the proxy are untrusted** by design. Keys from them are accepted only against member-signed hashes.
+- **The REST endpoint and the proxy are untrusted** by design. Keys from them are accepted only against member-signed hashes. Envelopes recovered from REST (smart-account bids) and cards from `deployments/committee-cards.json` are untrusted too: a wrong envelope opens to a share that fails its on-chain hash, and a wrong card fails its member-signed hash.
 - **The contracts have not had an external audit.**

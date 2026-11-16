@@ -54,7 +54,7 @@ async function refresh(): Promise<void> {
 openBtn.onclick = () =>
   guard(openBtn, async () => {
     if (!me || index === 0) throw new Error("choose a member account first");
-    const bids = await readBids(client, auction);
+    const bids = await readBids(client, auction, { rest: cfg.rest });
     const t0 = performance.now();
     opened = openMemberShares({ chainId: BigInt(cfg.chainId), auction, index, keys: me.seal, bids });
     const ms = Math.round(performance.now() - t0);

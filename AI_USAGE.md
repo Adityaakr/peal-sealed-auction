@@ -71,6 +71,8 @@ The worker also ran the testnet deployment and the demo auction.
 | A bank send with unsorted coins was refused and still charged 0.3 QOR | testnet | coins are sorted; recorded in `docs/spikes.md` |
 | The public RPC refuses `eth_getLogs` over 10,000 blocks | the first testnet demo attempt | logs are read in chunks; the auction it had created was closed and its supply returned |
 | A guessed gas figure (313k per `pqcVerify`) | measured on the testnet | the real `submitRelease` is 285k in total; docs corrected |
+| Smart-account bids (`MsgExecuteEVM`) emit no EVM logs, so committee members could not find their envelopes | the first settle run of the joint demo auction failed | bids are read from contract storage, and envelopes from the `MsgExecuteEVM` calldata via REST; members released in time |
+| The worker first misread the node's pruning as two hours of history | rechecking block numbers | corrected in the status report within minutes: about 1.4M blocks; cards saved anyway as a fallback |
 
 ## Log
 
