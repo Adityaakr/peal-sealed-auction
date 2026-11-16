@@ -53,6 +53,13 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Scoped windows | A window with `allowedTargets` [fUSD, auction] and `maxTxs` 2 admitted exactly approve + commit. A spent window needs no close, which saves a 0.15 QOR fee per account | demo run |
 | Cost of one demo run per account | about 0.35 QOR per bidder (window, approve, commit) and 0.33 QOR per member (window, release); the deployer pays the rest. `setup` tops accounts up from the deployer | `npm run testnet -- accounts status` before and after |
 
+## 2026-11-16, web pages against the testnet (reads only)
+
+| Question | Finding | How |
+|---|---|---|
+| Do the pages work on the testnet? | Yes. The bid page's committee check passes against the live chain and REST (through the dev server's `/rest` proxy). Member 1 opens its real shares of the demo auction in the browser. The results page shows the settled demo (1.5 fUSD per PEAL-T, 60 and 40 allocated). No page errors | headless Chromium against `?net=testnet`, no transactions sent |
+| Page speed over the public RPC | Reading bids one by one was slow enough to show an empty table for seconds. The results and home pages now read in parallel | same |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

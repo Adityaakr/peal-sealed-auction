@@ -1,53 +1,94 @@
 # AI usage
 
-How this repository was built, kept as a dated log. All dates UTC.
+How this repository was built: the workflow, what the AI generated, what went wrong, and what the human decided. The log at the end is dated (UTC).
 
 ## Workflow
 
-- **Orchestrator.** One supervising agent ("firstmate") dispatches worker agents, one per repository, each with a written brief. Each worker runs in its own isolated git worktree and ships its work as reviewable pull requests on its own branch. Workers never push to `main` and never merge.
-- **Worker.** This repository is built by a Claude Code worker agent (Claude Opus 5.5). It writes the code, tests and docs, runs `forge test` locally, and opens the pull requests.
-- **Human (the project owner).** Approves the design and every decision that shapes the product, holds all keys and test funds, claims faucet funds, and approves every merge.
-- **Sources.** The worker reads the author's earlier private project, Peal, read-only, and ports rules rather than files (see README "Prior work").
+```
+ Human (project owner)
+   │  approves the design and every product decision; holds keys and test funds;
+   │  claims the faucet; reviews and merges every pull request
+   ▼
+ Orchestrator agent ("firstmate")
+   │  writes a brief per repository; relays decisions, merges and funding;
+   │  never writes this repository's code
+   ▼
+ Worker agent (Claude Code, Claude Opus 5.5), one per repository
+      works in an isolated git worktree on one branch; ships small pull requests;
+      never pushes to main, never merges; reports each PR and every blocker
+```
 
-## Decisions the human made
+- **Briefs and steering are written down.** The worker starts from a written brief and the approved design report. The orchestrator steers it through durable inbox messages ("PR merged, continue", "the owner funded the deployer; transfer X to Y first"). The worker acknowledges each one and reports progress in a status file.
+- **Each slice is one reviewable pull request,** checked by CI and an automated reviewer (CodeRabbit). The PRs, in order:
+  1. clearing rule;
+  2. contracts;
+  3. client and daemon;
+  4. web pages;
+  5. testnet deployment;
+  6. this documentation and demo polish.
+- **Prior work is read, never copied.** The worker read the author's earlier private project, Peal, read-only, and ported rules rather than files (README "Prior work").
+- **Shared code comes from its owner.** The toolkit `qore-pq-kit` was built in parallel by another worker agent. This worker imported it by git tag and did not write a competing version.
 
-Recorded from the approved combined design (2026-11-15/16):
+## What the AI generated
 
-- D1: approve the combined design for the three entries and the shared toolkit.
-- D2: a treasury buyback runs as the vault selling fUSD for PEAL-T on this forward sealed auction; no second clearing engine.
-- D3: the owner holds the three committee keys as separate demo accounts, disclosed.
-- D4: the fest's fUSD as the quote token, plus a PEAL-T demo token with a faucet.
-- D6: the shared toolkit is distributed by git tags; nothing on npm.
-- D7: Apache-2.0.
-- D8: no public "try it" bidding.
+Everything in this repository:
+- the Solidity contracts and their 105 Foundry tests (unit, fuzz, and invariants with a random-actor handler);
+- the TypeScript client and its tests;
+- the committee daemon;
+- the five web pages;
+- the REST proxy;
+- the local stack, the end-to-end and browser runs;
+- the testnet scripts;
+- all documentation.
+
+The worker also ran the testnet deployment and the demo auction.
+
+## What the human contributed and decided
+
+- **The product and its design**: the approved combined design, including:
+  - **D1**, approve the design;
+  - **D2**, buybacks run as the treasury selling fUSD on this forward auction;
+  - **D3**, the owner holds the three committee keys, disclosed;
+  - **D4**, fUSD plus a PEAL-T demo token;
+  - **D6**, the toolkit is distributed by git tags;
+  - **D7**, Apache-2.0;
+  - **D8**, no public bidding.
+- **Every merge.** No pull request merged without the human.
+- **Funds**: the faucet claims, and how one claim is shared across all the fest entries.
+- **Repository visibility**: when the toolkit repository went private and broke CI here, the owner chose to make it public again.
+
+## What went wrong, and what the agents caught
+
+| What | How it surfaced | Outcome |
+|---|---|---|
+| Stack too deep in `commitBid` and `registerSet` | compile error | inputs restructured, then `via_ir` |
+| The registry hashed raw card bytes; the toolkit defines the card hash over the signed text | reading the toolkit's tagged code before integrating | the registry takes the member-signed hash |
+| Peal's settlement could credit the issuer a few base units more than winners paid | reviewing the port | proceeds are the exact sum; a fuzz test ends every auction at zero balances |
+| A share hash committed for a value outside the field would make recombination revert for every caller | reviewing the release path | releases refuse such shares; tested |
+| The toolkit repository turned private and CI could not fetch it | CI failure | reported as a decision; the owner made it public |
+| The orchestrator's browser tool could not attach to a browser | tool errors | Playwright's headless Chromium, now `npm run web:smoke` in CI |
+| Playwright has no headless shell for Ubuntu 26.04 | CI failure | that job pinned to Ubuntu 24.04 |
+| A bank send with unsorted coins was refused and still charged 0.3 QOR | testnet | coins are sorted; recorded in `docs/spikes.md` |
+| The public RPC refuses `eth_getLogs` over 10,000 blocks | the first testnet demo attempt | logs are read in chunks; the auction it had created was closed and its supply returned |
+| A guessed gas figure (313k per `pqcVerify`) | measured on the testnet | the real `submitRelease` is 285k in total; docs corrected |
 
 ## Log
 
 ### 2026-11-16
 
-- Worker scaffolded the repository from `create-qorechain-dapp@0.14.0` (`foundry` template), kept its window helper, and pinned dependencies (forge-std v1.11.0, OpenZeppelin Contracts v5.4.0, `@qorechain/*` 0.14.0 exactly).
-- Worker ported the uniform clearing rule and the decimal-safe price math from Peal as fresh code (`ClearingPrice.sol`, `AuctionMath.sol`), rewrote Peal's clearing test cases, and added a differential fuzz test against a slow reference model of the rule. 26 tests pass.
-- Worker wrote the first README, this file and `THREAT_MODEL.md`.
-- Not done by the AI: no key was created, no transaction was sent, nothing was deployed.
-- Human: merged the first pull request.
-- Worker wrote the committee registry (ML-DSA-87 joins binding ML-KEM key hashes and card hashes), the sealed auction lifecycle (commit, close, signed releases, on-chain key rebuild and decryption, finalize, claims), the factory, and the PEAL-T demo token and faucet. Structure ported from Peal; the sealing layer is new.
-- Worker built against interfaces before the toolkit was tagged, using a read-only local copy that was never committed. It switched to `qore-pq-kit` `v0.1.0` (`PqAuth`, `Shamir`, `SealedSlot`, test mocks) as soon as that tag existed.
-- What the worker found and changed:
-  - The toolkit defines a card hash as keccak256 of the card's signed text, so the registry now takes the member-signed hash instead of hashing raw card bytes.
-  - Peal's settlement could credit the issuer a few base units more than winners paid. Proceeds here are the exact sum of payments.
-  - A bidder could commit a share hash of a value outside the field. That share would then revert key recombination for every caller. Releases now refuse such shares; a member flags them instead.
-- Tests: 105 Foundry tests (unit, fuzz with exact token conservation over whole auctions, and invariants with a random-actor handler). Probe invariants were used once to confirm the handler reaches settled auctions with burned bonds, then removed.
-- Human: merged the second pull request.
-- Worker wrote the TypeScript client (`client/`): committee discovery and checks through the kit's `verifyMember`, bid sealing through the kit's `sealSlot`, share opening, and release signing with local ML-DSA-87 verification. It also wrote the committee member step and daemon (`apps/committee/`), vitest tests with real QoreSeal and ML-DSA-87, and a local end-to-end run on anvil.
-- Design choice by the worker: the local run uses real ML-DSA-87 signatures. The EVM cannot verify them, so a local-only stand-in (`OraclePqcVerify`) returns the verdict the harness got from real ML-DSA-87 verification. This keeps the forged-release refusal real instead of mocking every signature as valid.
-- Human: merged the third pull request.
-- Worker wrote the web pages (bidder, committee member, results), the read-only REST proxy, and a long-running local stack. It also wrote `web:smoke`, which drives the pages through a whole auction in headless Chromium. The bids are sealed, and the shares opened and releases signed, inside the browser.
-- What went wrong: the orchestrator's browser tool (`chrome-devtools-axi`) could not attach to a browser in this session. The worker used Playwright's headless Chromium instead, first from a scratch script, then as `scripts/web-smoke.ts` in CI.
-- Human: merged the fourth pull request. Made one faucet claim to the deployer and decided how it is shared across all entries. The worker sent the requested transfers to the other entries' accounts (one transaction, hash recorded) before using any funds itself.
-- Worker ran the testnet setup (ML-DSA-87 keys for six accounts, ML-KEM-1024 keys for the committee, fUSD conversion), deployed the contracts, registered the 2-of-3 committee with on-chain `pqcVerify`, and ran a whole sealed auction on the testnet in scoped windows.
-- What went wrong and was fixed:
-  - a bank send with unsorted coins was refused and charged a 0.3 QOR fee;
-  - the first demo attempt hit the RPC's 10,000-block `eth_getLogs` limit, so the client now reads logs in chunks.
+- **Scaffold and clearing rule.** Worker scaffolded the repository from `create-qorechain-dapp@0.14.0` (`foundry` template) and pinned dependencies. It ported the uniform clearing rule and the price math from Peal as fresh code. It rewrote Peal's clearing tests and added a differential fuzz test against a reference model. It wrote the first README, this file and `THREAT_MODEL.md`. Human merged PR 1.
+- **Contracts.** Worker wrote the committee registry (ML-DSA-87 joins), the sealed auction lifecycle (commit, close, signed releases, on-chain key rebuild and decryption, finalize, claims), the factory, and the demo token and faucet.
+  - Before the toolkit was tagged, the worker built against a read-only local copy that was never committed. It switched to `qore-pq-kit` `v0.1.0` as soon as that tag existed.
+  - When the toolkit repository briefly went private and CI failed, the worker raised it as a decision; the owner made it public again.
+  - Human merged PR 2.
+- **Client, daemon, local run.** Worker wrote the TypeScript client, the committee daemon, vitest tests with real QoreSeal and ML-DSA-87, and the local end-to-end run. In that run, a local-only stand-in gives `pqcVerify` the verdict of real ML-DSA-87 verification, so the forged-release refusal is real. Human merged PR 3.
+- **Web pages.** Worker wrote the bidder, committee and results pages, the REST proxy, the local stack and the headless-browser run. Human merged PR 4.
+- **Testnet.** The owner made one faucet claim to the deployer. The worker first sent the transfers the owner allocated to the other entries (one transaction, hash recorded), then:
+  - set up its six accounts;
+  - deployed the contracts;
+  - registered the committee;
+  - ran a whole sealed auction on the testnet in scoped windows, with a forged release refused by the live `pqcVerify` and member 3 offline.
 
-  Both are recorded in `docs/spikes.md`.
-
+  Human merged PR 5.
+- **Polish.** Worker restructured the README around the category's requirements, with evidence. It turned the threat model into an attack-by-attack table that names the test or testnet evidence for each defence. It added a shot list for the video (`docs/DEMO.md`) and a `create` command. It made the results and home pages read in parallel. Then it checked every page against the live testnet at zero cost (reads only): the bidder's committee check, member 1 opening its real shares in the browser, and the settled results.
+- **Joint demo.** On the orchestrator's request, the worker opened an auction for the Peal Bidder agent's demo (`0x481FBb2C84582BF7c258c46BF523DEEbDe51E990`, 48 ticks so the agent's mandate limit of tick 40 binds) and started `settle`. That command waits for the close, has two members release, opens and finalizes. The worker does not coordinate with the Bidder's worker directly; the orchestrator relays.
