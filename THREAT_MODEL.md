@@ -71,6 +71,20 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
   - the EVM transaction signature itself (secp256k1). It is bounded by the ML-DSA-signed window that admits it.
   - X25519 inside the hybrid envelope. A break of X25519 alone does not open an envelope.
 
+### The inventory, measured (QoreScan)
+
+`npm run cbom` runs QoreChain's QoreScan over the contracts (with the kit's `PqAuth.sol`), the deployer, committee1 and bidder1 accounts, and the two public endpoints the pages use. It writes a CycloneDX 1.6 CBOM (`docs/qorescan/cbom.json`) and a draft crypto-agility statement (`docs/qorescan/agility-statement.md`). What it recorded, and what that means here:
+
+| Found | Where | Here |
+|---|---|---|
+| ML-DSA-87 (FIPS 204) | `pqcVerify` (0x0A01) and `pqcKeyStatus` (0x0A02) in `PqAuth.sol`; each account's registered key with proof of possession | releases and committee joins |
+| ML-KEM-1024 (FIPS 203) | committee1's registered KEM key | share envelopes |
+| Keccak-256 | the contracts' commitments, cipher and message hashing | a hash; Grover only halves its strength |
+| ECDSA secp256k1 | the EVM lane and each account's classical key | bounded by the ML-DSA-signed window, as above |
+| Ed25519, ECDSA P-256/P-384, RSA, X25519MLKEM768 | validator consensus keys and the endpoints' TLS | QoreChain's infrastructure, outside this project; the endpoints already negotiate the hybrid X25519MLKEM768 |
+
+QoreScan is an inventory aid, not a certification.
+
 ## Residual risks, stated plainly
 
 - **t colluding members can read bids early,** or withhold a chosen bid. If the remaining member also released, that bid then loses its bond.

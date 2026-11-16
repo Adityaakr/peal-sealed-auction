@@ -92,6 +92,16 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Does `@qorechain/wallet-adapter` install next to the SDK? | Not as is: its peers ask for cosmjs 0.32 and the SDK uses 0.39 (`ERESOLVE`, as its docs warn). An `overrides` entry that points its two peers at 0.39 installs cleanly | `npm i @qorechain/wallet-adapter@0.6.0` |
 | Is the `@handle` registry usable from a page? | Not yet: `@qorechain/handles` needs the registry's base URL and ed25519 key, and neither is published | package README, docs page "Chain bridge and handles" |
 
+## 2026-11-17, evidence and inventory tools
+
+| Question | Finding | How |
+|---|---|---|
+| What does `qore pq status` say about a key registration? | Tier `enrollment`, not `pqc`: `MsgRegisterPQCKeyV2` is the one classical message, carrying its own proof of possession. Every other native transaction recorded here is tier `pqc` with the ML-DSA-87 layer verified (sign-bytes v2) | `npm run evidence` |
+| Can the hash form tell the lane? | No. The guest proof recorded some EVM transactions by their native-style hash; `qore tx get` shows them as `MsgEthereumTx`, tier `classical`. The evidence script classifies by message type | same |
+| Does QoreScan see the post-quantum checks in the contracts? | Only with the kit's source included: `PqAuth.sol` is where `pqcVerify` and `pqcKeyStatus` are called. Scanning `src/` alone records only Keccak-256. Locations are file names without directories | `qorescan solidity src lib/qore-pq-kit/src` |
+| Do the endpoints negotiate post-quantum TLS? | Yes: both `api-testnet.qore.host` and `evm-testnet.qore.host` answer TLS 1.3 with the hybrid group X25519MLKEM768; their certificates are ECDSA | `npm run cbom` |
+| Does the MCP server start from `.mcp.json`? | Yes: `npx qorechain-mcp --network testnet` answers `initialize` and lists read-only tools (no signing tool) | `test-ts/mcp.test.ts` |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

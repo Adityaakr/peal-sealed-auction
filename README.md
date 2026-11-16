@@ -79,7 +79,7 @@ Every hash and every envelope is bound to the chain id, the auction, the bidder 
 | **ML-DSA key binding** | Each member's join is an ML-DSA-87 signature (`pqcVerify`, key from `pqcKeyStatus`) binding its ML-KEM key hash and QoreSeal card hash to the set. Releases are ML-DSA-87 signed and verified on chain | `src/CommitteeRegistry.sol`, `src/SealedAuction.sol` (kit `PqAuth`); 16 registry tests and 14 release-refusal tests | `registerSet` `0x470ce18a…b593` (3 joins verified); releases `0xc999a0c2…ee68`, `0xcc039c7d…3007`; forged release refused |
 | **Client-side encryption and decryption** | Bids are sealed in the bidder's browser. Each member opens its shares and signs its release in its own browser, and keys never leave the tab | `apps/web/` (bid and committee pages); `npm run web:smoke` drives a whole auction in headless Chromium in CI | the same pages work against the testnet (`?net=testnet`) |
 
-Every testnet hash is listed in [`deployments/`](deployments/).
+Every testnet hash is listed in [`deployments/`](deployments/). `npm run evidence` re-checks all of them on the chain with QoreChain's `qore` CLI: every native transaction's ML-DSA-87 layer, and every EVM transaction's outcome (`deployments/evidence.json`). `npm run cbom` writes the project's crypto inventory with QoreScan (`docs/qorescan/`).
 
 ## Live on the testnet
 
@@ -239,11 +239,14 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `deployments/` | Testnet addresses and every transaction hash |
 | `docs/spikes.md` | Testnet facts settled by experiment |
 | `docs/kits.md` | The QoreChain kits and network features used, why, and the evidence |
+| `scripts/evidence.ts`, `deployments/evidence.json` | Every recorded transaction and account re-checked through the `qore` CLI |
+| `docs/qorescan/` | The crypto inventory (CycloneDX CBOM) and a draft agility statement, from QoreScan |
+| `.mcp.json` | The QoreChain MCP server (read-only) for coding agents working in this repository |
 | `client/audit.ts` | The independent check: release signatures verified with `@qorechain/pqc`, bids reopened from stored shares |
 | `docs/DEMO.md` | The 3-minute demo, shot by shot |
 | `THREAT_MODEL.md`, `AI_USAGE.md` | Trust model; how AI agents built this and what the human decided |
 
-Built with `create-qorechain-dapp` (scaffold), [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) `v0.1.0`, `@qorechain/sdk` and `@qorechain/evm` 0.14.0, `@qorechain/qoreseal` 0.1.0, `@qorechain/qoresign` 0.2.0, `@qorechain/pqc` 0.2.3, `@qorechain/qorex-types` and `@qorechain/qorex-wallet-mock` 0.1.0, OpenZeppelin Contracts 5.4.0. Which QoreChain kits and network features this project uses, why, and the evidence for each: [`docs/kits.md`](docs/kits.md).
+Built with `create-qorechain-dapp` (scaffold), [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) `v0.1.0`, `@qorechain/sdk` and `@qorechain/evm` 0.14.0, `@qorechain/qoreseal` 0.1.0, `@qorechain/qoresign` 0.2.0, `@qorechain/pqc` 0.2.3, `@qorechain/qorex-types` and `@qorechain/qorex-wallet-mock` 0.1.0, `@qorechain/qore-cli` and `@qorechain/mcp` 0.1.1, `@qorechain/qorescan` 0.1.0, OpenZeppelin Contracts 5.4.0. Which QoreChain kits and network features this project uses, why, and the evidence for each: [`docs/kits.md`](docs/kits.md).
 
 ## Prior work
 

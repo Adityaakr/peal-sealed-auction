@@ -21,8 +21,8 @@ Read from the fest site's own text on 17 November 2026 (project form hints, FAQ)
 | QoreSeal (`@qorechain/qoreseal`) | yes | Every key share is a hybrid ML-KEM-1024 + X25519 envelope to one member's registered key | already verified |
 | QoreX integrations (`@qorechain/qorex-types`, `@qorechain/qorex-wallet-mock`) | yes | The wallet drawer's QoreX path uses the official detection helpers, typings and `qorexSignAndBroadcast`. It reports QoreX's own `shield` check of the funding transaction and refuses a `downgraded` one. The official mock tests it, and drove it on the testnet | `apps/web/src/wallet/qorex.ts`, `test-ts/qorex.test.ts`, `deployments/qorex-proof.json` |
 | Wallet adapter (`@qorechain/wallet-adapter`) | follow-up PR | The chain's route for MetaMask on QoreChain: link a MetaMask key to the bidder's post-quantum account as an authenticator, bounded by spending rules, and relay `MsgExecuteEVM`. Today the drawer can only show a MetaMask account. Note: its peers pin cosmjs 0.32 while the SDK uses 0.39; an `overrides` entry resolves it (tried) | planned |
-| MCP + qore CLI (`@qorechain/mcp`, `@qorechain/qore-cli`) | follow-up PR | An evidence check that asks the chain, through `qore pq status`, whether every transaction in `deployments/` carries a verified hybrid ML-DSA-87 layer. Plus an MCP server entry for the coding agents that build this repository (`AI_USAGE.md`) | planned |
-| QoreScan (`@qorechain/qorescan`) | follow-up PR | A CycloneDX CBOM of the contracts and the project's testnet accounts: which primitives are post-quantum and which are not, beside `THREAT_MODEL.md` | planned |
+| MCP + qore CLI (`@qorechain/qore-cli`, `@qorechain/mcp`) | yes | **Evidence anyone can re-run.** `npm run evidence` asks the chain, through `qore tx get` and `qore pq status`, about every transaction recorded in `deployments/` and every project account. It writes `deployments/evidence.json`. `.mcp.json` gives the coding agents that build this repository (`AI_USAGE.md`) the same read-only view of the chain; a test starts it and checks that no tool signs | `scripts/evidence.ts`, `test-ts/mcp.test.ts`; on 17 November: 12 of 12 native transactions verified, 7 key registrations, 28 of 28 EVM transactions succeeded |
+| QoreScan (`@qorechain/qorescan`) | yes | **The crypto inventory behind the threat model.** `npm run cbom` scans the contracts (with the kit's `PqAuth.sol`, where it finds ML-DSA-87 through the precompiles), three project accounts and the two endpoints the pages use. It writes a CycloneDX CBOM and a draft agility statement | `docs/qorescan/`, `THREAT_MODEL.md` |
 | Asset Kit | evaluating | A sealed uniform-price auction is how bond issues are sold. The kit's ERC-3643/CMTAT token with the post-quantum holder check would make the sale token one only accounts with a registered ML-DSA-87 key may hold | under evaluation |
 | RDK | no | Rollups are not part of an auction venue | none |
 | Custody kit | no | Reference code for custodians and exchanges, not a dependency (published only on GitHub) | none |
@@ -46,8 +46,8 @@ Addresses below are `qor1` forms of this project's throwaway testnet accounts (s
 | AMM pools | follow-up PR | a bidder short of fUSD for a sale buys it on the testnet AMM (`msg.amm.swapExactIn`) before sealing | bidder1 |
 | Smart accounts and spending rules | follow-up PR | with the wallet adapter (above): a MetaMask key linked to the bidder's account under a spending rule that allows only this auction and its token | bidder1 |
 | Asset Kit | evaluating | see the kit | |
-| MCP server or qore CLI | follow-up PR | the CLI only reads; nothing to see on chain | |
-| QoreScan | follow-up PR | reads only | |
+| MCP server or qore CLI | yes | read-only by design, so nothing new lands on chain; it checks every recorded transaction and account (`npm run evidence`) | all listed |
+| QoreScan | yes | read-only; its CBOM lists the listed accounts' ML-DSA-87 and ML-KEM keys | deployer, committee1, bidder1 |
 | Staking tiers, IBC via QORel, Cross-VM, RDK rollup, sidechain, light node, approved Native contracts | no | none of these is part of a sealed-bid auction; adding one would be a checkbox, not a feature | |
 | Sign In With QoreChain | no | the pages have no server to sign in to: members open their shares in their own browser, and the contract checks their signatures | |
 

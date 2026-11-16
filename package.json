@@ -20,7 +20,9 @@
     "proxy": "tsx proxy/server.ts",
     "web:smoke": "forge build && tsx scripts/web-smoke.ts",
     "testnet": "tsx scripts/testnet/cli.ts",
-    "web:preview": "tsx scripts/web-preview.ts"
+    "web:preview": "tsx scripts/web-preview.ts",
+    "evidence": "tsx scripts/evidence.ts",
+    "cbom": "qorescan scan --network testnet --solidity src --solidity lib/qore-pq-kit/src --address qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh --address qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx --address qor1ppnar99nxc8wq4pyjwt029v0ktcel55952jaj3 --tls api-testnet.qore.host:443 --tls evm-testnet.qore.host:443 --name peal-sealed-auction --out docs/qorescan/cbom.json && qorescan template agility --cbom docs/qorescan/cbom.json --out docs/qorescan/agility-statement.md"
   },
   "dependencies": {
     "@cosmjs/stargate": "0.39.0",
@@ -36,6 +38,9 @@
     "viem": "2.21.0"
   },
   "devDependencies": {
+    "@qorechain/mcp": "0.1.1",
+    "@qorechain/qore-cli": "0.1.1",
+    "@qorechain/qorescan": "0.1.0",
     "@qorechain/qorex-wallet-mock": "0.1.0",
     "@types/node": "22.7.5",
     "playwright-core": "1.56.1",
