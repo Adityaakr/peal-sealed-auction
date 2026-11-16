@@ -61,6 +61,7 @@ export function localWebConfig(s: Stack, auction: Address) {
     factory: s.factory,
     fusd: s.fusd,
     pealt: s.pealt,
+    committeeSetId: s.setId,
     auction,
     devAccounts: [
       ...s.bidders.map((b) => ({ label: `${b.name} (bidder) ${b.address}`, mnemonic: b.acc.mnemonic! })),

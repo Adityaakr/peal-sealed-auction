@@ -15,6 +15,7 @@ import { startStack, writeLocalWebConfig } from "./local/stack.ts";
 const s = await startStack({ port: Number(process.env.ANVIL_PORT ?? 18545), restPort: Number(process.env.REST_PORT ?? 18546) });
 const auction = await s.createAuction({ name: "Local demo", details: "PEAL-T for fUSD" });
 for (const b of s.bidders) await s.mintFusd(b.address, parseUnits("1000", 6));
+await s.mintFusd(s.issuer.address, parseUnits("1000", 6)); // for a buyback (D2)
 
 const path = writeLocalWebConfig(s, auction);
 console.log(`auction  ${auction}\nwrote ${path}\nlocal stack running; Ctrl-C to stop`);

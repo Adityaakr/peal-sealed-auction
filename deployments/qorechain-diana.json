@@ -1,0 +1,44 @@
+{
+  "network": "qorechain-diana",
+  "evmChainId": 9800,
+  "deployer": "0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40",
+  "fusd": "0x97143B771D34ddb9130b807b135Ae675A5a963CA",
+  "txs": {
+    "registry": "0xf39e2bb7f8f10528fd7406856c385abf8748d1e52373b932cc2ed11bb2f18e6f",
+    "implementation": "0x06e0ada6fd552927b2b18227b7b81d0e5b9d1108112746cb1c0b87ea65517292",
+    "factory": "0x6e499395b322cd4b8eabf1f4f4d2fab075cae99c915fe60675577a49dbe3e220",
+    "pealt": "0x72a5923b916cd8812ca2553709f5c6756c10861e045debc1c1e2196c0e9df819",
+    "faucet": "0x0da7c0df431de4c070d93c798511d7481b85808441823388b2bdaafabebcb060",
+    "faucetSeed": "0x7174bb8ae226980fc6e29773a76cc3521eef309b2e13c64c1992a92900111579",
+    "registerSet": "0x470ce18a4e0ba1782ca737381f18535ca6169b5b8908b53680e0454c17b0b593"
+  },
+  "registry": "0x95ea32ba3077070a562a9f7ad2e969f231689bae",
+  "implementation": "0xd4a1196aebe17121db3d6c1d56b326575faf62b3",
+  "factory": "0x1160ab95b570a65bbadb488c76e2f8515f3d6562",
+  "pealt": "0x7edc65adc95de061887ecd6fc8629f2a99fffe9e",
+  "faucet": "0xe6c2943ff47e908c8b42af4329fb4abd10452e57",
+  "committeeSetId": "0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5",
+  "committee": [
+    {
+      "index": 1,
+      "account": "0x64eE2394BE93B0e840b06fd497df90E5295786Ee",
+      "qor": "qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx",
+      "kemKeySha3": "0x602d1000a97a816be59ed9c03bb68d1d2d881467d30e49f27fb0c247b4bf0a8d",
+      "cardHash": "0x139cdc83b482915c07e6fd0d56beddcc7328e377f088ca599c7d39bfe392f2c4"
+    },
+    {
+      "index": 2,
+      "account": "0x75588D0B6117D3C05694B656228508D461A996c4",
+      "qor": "qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v",
+      "kemKeySha3": "0x13997af9df4d0f4be8b6b5a60abe7ec073be86d649f49e4ee43334407fce819e",
+      "cardHash": "0xf00ce7251af1f8bfee229203db581d3045c8b14dbd84fe45e63b0230994287bc"
+    },
+    {
+      "index": 3,
+      "account": "0x0E7db45Da1fD3d974218E59CF8C4387789fF1714",
+      "qor": "qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx",
+      "kemKeySha3": "0xca62056883be1cce9e008affafc7fb7811bd7be7cc1811f9af4579f3b3f0a35b",
+      "cardHash": "0xa6e4d0a439c3c51cbfff7dc5dfe4da16bcbf18d1ef0898a13e7431845e55a7e5"
+    }
+  ]
+}

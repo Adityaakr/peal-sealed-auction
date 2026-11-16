@@ -14,6 +14,7 @@ import { verifyMember } from "qore-pq-kit/threshold";
 import { bytesToString, hexToBytes, stringToBytes, toHex, type Address, type Hex, type PublicClient } from "viem";
 import { committeeRegistryAbi } from "./abi.ts";
 import { SEAL_CHAIN_ID } from "./constants.ts";
+import { collectLogs } from "./logs.ts";
 
 export interface CommitteeMember {
   /** 1-based share index. */
@@ -43,7 +44,7 @@ export async function readCommittee(
   client: PublicClient,
   registry: Address,
   setId: Hex,
-  fromBlock: bigint = 0n,
+  fromBlock?: bigint,
 ): Promise<Committee> {
   const [threshold, members] = await client.readContract({
     address: registry,
@@ -51,14 +52,21 @@ export async function readCommittee(
     functionName: "getSet",
     args: [setId],
   });
-  const logs = await client.getContractEvents({
-    address: registry,
-    abi: committeeRegistryAbi,
-    eventName: "MemberJoined",
-    args: { setId },
-    fromBlock,
-    strict: true,
-  });
+  const logs = await collectLogs(
+    client,
+    (from, to) =>
+      client.getContractEvents({
+        address: registry,
+        abi: committeeRegistryAbi,
+        eventName: "MemberJoined",
+        args: { setId },
+        fromBlock: from,
+        toBlock: to,
+        strict: true,
+      }),
+    members.length,
+    { fromBlock },
+  );
   const cards = new Map<number, Hex>();
   for (const l of logs) cards.set(Number(l.args.index), l.args.card);
   return {

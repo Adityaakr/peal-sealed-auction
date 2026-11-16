@@ -4,7 +4,7 @@ A uniform-price sealed-bid auction on QoreChain whose bids no single key holder 
 
 Entry in the QoreChain "Build Before Q-Day" Developer Fest, category **Encrypted Apps**. Licence: Apache-2.0.
 
-> Status (2026-11-16): work in progress. The contracts, the TypeScript client, the committee daemon and the web pages (bidder, committee member, results) are written and tested end to end on a local chain, in a real headless browser. The testnet deployment follows. Deployed addresses will be listed here once they exist.
+> Status (2026-11-16): deployed on the QoreChain testnet (qorechain-diana), with the 2-of-3 committee's ML-DSA-87 joins verified on chain by `pqcVerify` and its ML-KEM-1024 keys registered with `MsgRegisterKEMKey`. The contracts, client, committee daemon and web pages are tested end to end on a local chain and in a headless browser. Deployed addresses will be listed here once they exist.
 
 ## The problem
 
@@ -32,6 +32,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `proxy/` | Read-only REST proxy for the PQC routes (GET, allowlisted paths only), because the public REST endpoint sends no CORS headers |
 | `scripts/local-stack.ts`, `scripts/local/stack.ts` | A long-running local chain for the pages: anvil, precompile stand-ins, contracts, a 2-of-3 committee with real keys, one open auction |
 | `scripts/web-smoke.ts` | Drives the pages through a whole auction in headless Chromium (`npm run web:smoke`) |
+| `scripts/testnet/` | Testnet operations: accounts (secrets outside the repo), setup (funding, ML-DSA and ML-KEM key registration, fUSD conversion), deploy (contracts and the 2-of-3 committee), demo (a whole auction with the real precompiles, inside scoped windows) |
 | `scripts/e2e-local.ts` | The whole auction on anvil with real ML-DSA-87, real QoreSeal and the kit's real `verifyMember` (`npm run e2e:local`) |
 | `test-ts/` | Vitest tests of the client with real QoreSeal and ML-DSA-87 |
 | `src/libraries/ClearingPrice.sol` | Uniform clearing over at most 256 price ticks; pro-rata at the clearing tick, rounded down |
@@ -42,7 +43,7 @@ Fewer than two members learn nothing about any bid. There is no reveal step by t
 | `THREAT_MODEL.md` | Who can do what, and the residual risks |
 | `AI_USAGE.md` | Dated log of how AI agents built this, and what the human decided |
 
-Planned (later pull requests): testnet deploy and committee registration scripts, and an issuer page.
+Planned (later pull requests): an issuer page.
 
 The post-quantum building blocks come from the shared toolkit [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) at tag `v0.1.0`: `PqAuth` (ML-DSA-87 checks through `pqcKeyStatus` and `pqcVerify`), `Shamir` and `SealedSlot` (threshold key shares and the one-block cipher) as a Foundry submodule, and `threshold.ts` as a package.json git dependency.
 
@@ -134,6 +135,66 @@ Reads `QORE_MNEMONIC` from `~/.qore-peal-sealed-auction/committee1.env` (mode 06
 | Testnet | `qorechain-diana` | 9800 | `https://evm-testnet.qore.host` |
 
 Every EVM transaction on QoreChain needs a registered ML-DSA-87 key and a live EVM authorisation window; see `scripts/window.ts` (`npm run window status|register|open`). Keys and mnemonics are kept outside the repository and are never committed.
+
+### Deployed (qorechain-diana, EVM chain id 9800)
+
+| Contract | Address |
+|---|---|
+| `CommitteeRegistry` | `0x95ea32ba3077070a562a9f7ad2e969f231689bae` |
+| `SealedAuction` (implementation) | `0xd4a1196aebe17121db3d6c1d56b326575faf62b3` |
+| `SealedAuctionFactory` | `0x1160ab95b570a65bbadb488c76e2f8515f3d6562` |
+| PEAL-T (demo token) | `0x7edc65adc95de061887ecd6fc8629f2a99fffe9e` |
+| PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` |
+| fUSD (the fest's token) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
+
+Committee set `0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5`, 2 of 3. Its members are below. The owner holds all three keys as separate accounts; this is disclosed and for the demo only (D3).
+
+| Member | Account | SHA3-256 of its registered ML-KEM-1024 key |
+|---|---|---|
+| 1 | `0x64eE2394BE93B0e840b06fd497df90E5295786Ee` | `0x602d1000…b4bf0a8d` |
+| 2 | `0x75588D0B6117D3C05694B656228508D461A996c4` | `0x13997af9…7fce819e` |
+| 3 | `0x0E7db45Da1fD3d974218E59CF8C4387789fF1714` | `0xca620568…b3f0a35b` |
+
+Every transaction hash is recorded in `deployments/qorechain-diana.json`. The pages use the testnet with `?net=testnet`.
+
+### Testnet demo run (2026-11-16)
+
+Auction `0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` sold 100 PEAL-T for fUSD. Every transaction ran in a scoped window. Every hash is in `deployments/demo-0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124.json`.
+
+| Step | What happened on chain | Gas |
+|---|---|---|
+| `createAuction` | created, funded with 100 PEAL-T and opened in one call | 684k |
+| Committee check | each member's ML-DSA key read from `pqcKeyStatus`, ML-KEM key from `/qorechain/pqc/v1/kem/…` against the signed hash, card verified | (reads) |
+| `commitBid` ×2 | 60 PEAL-T at ≤ 2.50 and 70 PEAL-T at ≤ 1.50, each a ciphertext plus three 1,752-byte ML-KEM-1024 + X25519 envelopes | 439k, 405k |
+| Forged release | an outsider's ML-DSA-87 signature in member 3's slot, simulated against the live `pqcVerify`: refused (`ReleaseSignatureInvalid`) | none |
+| `submitRelease` ×2 | members 1 and 2 opened their shares and released; member 3 stayed offline | 285k each (one real `pqcVerify`) |
+| `openBids` | the contract rebuilt each K from two shares, checked it against `keyHash` and decrypted both bids | 286k |
+| `finalize` | cleared at 1.50 fUSD per PEAL-T: 60 to bidder 1 (who bid 2.50 and paid 1.50), 40 to bidder 2 | 236k |
+| claims | both bidders, proceeds and unsold supply paid out | 40k to 111k |
+
+### Testnet runbook
+
+The project uses six fresh throwaway accounts: a deployer (also the demo issuer), three committee members, and two bidders. The owner holds all three committee keys as separate accounts; this is disclosed and for the demo only (D3). Their mnemonics live in `~/.qore-peal-sealed-auction/<name>.env` (mode 0600).
+
+```sh
+npm run testnet -- accounts create   # once; prints addresses only
+# fund the deployer from the faucet (dashboard sign-in, an owner step)
+npm run testnet -- setup             # split funds, register ML-DSA-87 and ML-KEM-1024 keys, convert fUSD
+npm run testnet -- deploy            # contracts + committee; writes deployments/ and the pages' testnet config
+npm run testnet -- demo              # one whole auction with the real precompiles
+npm run testnet -- accounts status   # balances, keys, windows
+npm run testnet -- setup             # again any time: tops accounts up when they run low
+```
+
+The pages work on the testnet too. Open the scoped window an account needs (QoreX cannot open windows), then use the page with that account's mnemonic:
+
+```sh
+npm run testnet -- window bidder1 0x<auction>      # fUSD + the auction, 2 transactions
+npm run testnet -- window committee1 0x<auction>   # the auction, 1 transaction (one release)
+npm run web                                         # then open http://localhost:5173/?net=testnet
+```
+
+The demo runs every EVM transaction inside a scoped window, so each account can call only the contracts it needs. It records every transaction hash in `deployments/demo-<auction>.json`.
 
 ## Prior work
 

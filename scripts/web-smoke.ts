@@ -28,6 +28,7 @@ let failed = false;
 try {
   const auction = await s.createAuction();
   for (const b of s.bidders) await s.mintFusd(b.address, parseUnits("1000", 6));
+  await s.mintFusd(s.issuer.address, parseUnits("1000", 6)); // for a buyback (D2)
   writeLocalWebConfig(s, auction);
   await vite.listen();
   const base = vite.resolvedUrls!.local[0]!.replace(/\/$/, "");
@@ -76,6 +77,17 @@ async function drive(page: Page, base: string): Promise<void> {
   };
 
   // Accounts in config order: alice, bob, carol, member 1..3, issuer.
+  // The issuer opens a buyback (D2: fUSD for PEAL-T) from the page.
+  await page.goto(`${base}/issuer.html`);
+  await useAccount(6);
+  await page.selectOption("#kind", "buyback");
+  await page.fill("#supply", "50");
+  await page.fill("#reserve", "0.5");
+  await page.fill("#step", "0.25");
+  await page.click("#create");
+  await waitLog("buyback auction");
+  console.log(`  ok  issuer opened a buyback auction from the page: ${(await page.textContent("#created div"))?.trim()}`);
+
   const bids: [number, string, string][] = [
     [0, "50", "2"],
     [1, "70", "1"],

@@ -30,7 +30,29 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Is the KEM key route live? | Yes: `/qorechain/pqc/v1/kem/{qor1…}` answers `{"found":false,"key":null}` for an account without a key | through `npm run proxy` |
 | Do the SDK, QoreSeal and the kit's `threshold.ts` run in a browser bundle? | Yes, with Vite 6 and target ES2022, no polyfills; about 2.9 MB unminified-equivalent bundle (580 KB gzip). Account derivation, ML-DSA-87 signing, QoreSeal keys and sealing all run in headless Chromium | `npm run web:smoke` |
 
+## 2026-11-16, testnet deployment (qorechain-diana)
+
+| Question | Finding | How |
+|---|---|---|
+| Must an account register its ML-DSA key before a bank send? | We registered first (the one classical message), then sent hybrid. The chain's params say `hybrid_signature_mode: required`, `allow_classical_fallback: false` | `npm run testnet -- setup` |
+| Coin order in `MsgSend` | Coins must be sorted by denom: `[uqor, erc20:…]` is refused with `invalid coins` (code 10) and still charges the fee; `[erc20:…, uqor]` works. `setup.ts` sorts them | tx `7A31214D…ABCC` (refused), `834841F6…488A` (accepted) |
+| Does `MsgRegisterKEMKey` work from a script? | Yes: SDK `msg.pqc.registerKemKey({ sender, algorithmId: 2, publicKey })`, hybrid-signed; the key is then served at `/qorechain/pqc/v1/kem/{qor1…}` | committee1 tx `1E5640C6…C4DE` |
+| fUSD from the faucet | Arrives as the bank coin `erc20:0x9714…63CA`; `MsgConvertCoin` to the bidder's own 0x address makes it the ERC-20 the auction pulls | bidder1 tx `553B8F65…27DC` |
+| Deploy gas (real node) | `CommitteeRegistry` 883k, `SealedAuction` implementation 3.72M, factory 767k, PEAL-T 494k, faucet 386k | `deployments/qorechain-diana.json` |
+| `registerSet` with 3 real ML-DSA-87 joins | 1.31M gas in total. So `pqcVerify` costs far less than the design's 313k estimate. The anvil figure (1.62M) was higher because the local stand-in reads verdicts from storage | tx `0x470ce18a…b593` |
+| Does the registry accept joins made with SDK-derived keys and SDK `pqcSign`? | Yes: `pqcKeyStatus` returned each member's key with possession proven, and all three joins verified on chain | same |
+
+## 2026-11-16, testnet demo run
+
+| Question | Finding | How |
+|---|---|---|
+| `eth_getLogs` range | The public EVM RPC refuses ranges over 10,000 blocks ("maximum [from, to] blocks distance: 10000"). The client reads logs in chunks, backwards from the latest block, until it has as many events as the contract reports (`client/logs.ts`) | first demo attempt failed at `readCommittee` |
+| `submitRelease` gas with the real `pqcVerify` | 285k for a release over 2 bids | demo run |
+| `commitBid` gas | 405k to 439k with three envelopes | demo run |
+| Is the forged-release refusal real? | `eth_call` of `submitRelease` with an outsider's ML-DSA-87 signature for member 3 reverts `ReleaseSignatureInvalid` against the live precompile | demo run |
+| Scoped windows | A window with `allowedTargets` [fUSD, auction] and `maxTxs` 2 admitted exactly approve + commit. A spent window needs no close, which saves a 0.15 QOR fee per account | demo run |
+| Cost of one demo run per account | about 0.35 QOR per bidder (window, approve, commit) and 0.33 QOR per member (window, release); the deployer pays the rest. `setup` tops accounts up from the deployer | `npm run testnet -- accounts status` before and after |
+
 ## Open questions (to settle on testnet)
 
-- Gas of `submitRelease` with one `pqcVerify` and n shares at realistic bid counts.
-- Calldata cost of `commitBid` with three 1,752-byte envelopes.
+- Release gas at larger bid counts (each extra bid adds a share check and a storage write).

@@ -1,0 +1,215 @@
+/**
+ * demo.ts - one whole sealed auction on qorechain-diana, with the real
+ * precompiles (pqcKeyStatus, pqcVerify) and the real KEM key registry.
+ *
+ *   npm run testnet -- demo [--commit-seconds 300] [--release-seconds 420]
+ *
+ * Every EVM transaction runs inside a SCOPED window: each account may call only
+ * the contracts it needs (bidders: fUSD and the auction; members: the auction).
+ * The run writes every transaction hash to deployments/demo-<auction>.json.
+ *
+ * Refusal shown without spending gas: a release for member 3's slot signed by an
+ * outsider's ML-DSA-87 key is simulated on the node (eth_call runs the real
+ * pqcVerify) and must revert with ReleaseSignatureInvalid.
+ */
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs } from "node:util";
+import { closeEvmWindowMsg, deriveUnifiedAccount, fetchEvmWindow, generateMnemonic, openEvmWindowMsg, pqcSign } from "@qorechain/sdk";
+import { evmWindowCost } from "@qorechain/evm";
+import { broadcast, FUSD, network, publicClient, sendEvm } from "qore-pq-kit";
+import { encodeFunctionData, erc20Abi, hexToBytes, parseUnits, toHex, type Abi, type Address, type Hex } from "viem";
+import { memberStep } from "../../apps/committee/member.ts";
+import { bidContext, readCommittee, resolveCommittee, sealBid, sealedAuctionAbi, sealedAuctionFactoryAbi } from "../../client/index.ts";
+import { artifact } from "../local/stack.ts";
+import { BIDDERS, COMMITTEE, load, type Named } from "./lib.ts";
+
+const ROOT = join(import.meta.dirname, "..", "..");
+
+async function scopedWindow(n: Named, targets: Address[], maxTxs: number, gasPerTx: bigint, blocks = 1800): Promise<void> {
+  const maxValue = evmWindowCost({ gas: gasPerTx, maxFeePerGas: 250_000_000_000n, value: 0n }) * BigInt(maxTxs);
+  const res = await broadcast(n.acc, [
+    openEvmWindowMsg({ sender: n.acc.cosmos, blocks, maxTxs, maxValue, allowedTargets: targets.map((t) => t.toLowerCase()) }),
+  ]);
+  console.log(`${n.name}: window scoped to ${targets.length} contracts, ${maxTxs} txs, tx ${res.transactionHash}`);
+}
+
+async function closeWindow(n: Named): Promise<void> {
+  const w = await fetchEvmWindow({ rest: network().rest, address: n.acc.cosmos });
+  if (w.found) await broadcast(n.acc, [closeEvmWindowMsg(n.acc.cosmos)]);
+}
+
+async function waitUntil(t: bigint, what: string): Promise<void> {
+  for (;;) {
+    const now = (await publicClient().getBlock()).timestamp;
+    if (now > t) return;
+    console.log(`waiting ${t - now + 1n}s for ${what}`);
+    await new Promise((r) => setTimeout(r, Math.min(30, Number(t - now) + 2) * 1000));
+  }
+}
+
+export async function demo(argv: string[]): Promise<void> {
+  const { values } = parseArgs({ args: argv, options: { "commit-seconds": { type: "string", default: "300" }, "release-seconds": { type: "string", default: "420" } } });
+  const d = JSON.parse((await import("node:fs")).readFileSync(join(ROOT, "deployments", "qorechain-diana.json"), "utf8"));
+  const client = publicClient();
+  const deployer = await load("deployer");
+  const members = await Promise.all(COMMITTEE.map(load));
+  const bidders = await Promise.all(BIDDERS.map(load));
+  const record: Record<string, unknown> = { network: "qorechain-diana", startedAt: new Date().toISOString(), txs: {} as Record<string, Hex> };
+  const txs = record.txs as Record<string, Hex>;
+  const gas: Record<string, string> = {};
+  const evm = async (n: Named, label: string, to: Address, abi: Abi, functionName: string, args: unknown[] = []) => {
+    const r = await sendEvm(n.acc, { to, data: encodeFunctionData({ abi, functionName, args } as never) });
+    txs[label] = r.transactionHash;
+    gas[label] = r.gasUsed.toString();
+    console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
+    return r;
+  };
+
+  // 1. The issuer (deployer) opens the auction: 100 PEAL-T for fUSD.
+  const now = (await client.getBlock()).timestamp;
+  const name = "Peal Sealed Auction testnet demo";
+  const details = "100 PEAL-T for fUSD, 2-of-3 committee";
+  const commit = BigInt(values["commit-seconds"]!);
+  const cfg = {
+    issuer: deployer.evm,
+    saleToken: d.pealt as Address,
+    quoteToken: d.fusd as Address,
+    totalSupply: parseUnits("100", 18),
+    saleDecimals: 18,
+    reservePrice: 1_000_000n,
+    tickSize: 500_000n,
+    numTicks: 8,
+    startTime: now,
+    endTime: now + commit,
+    releaseDeadline: now + commit + BigInt(values["release-seconds"]!),
+    minBidQuantity: 1n,
+    maxQuantityPerAddress: 0n,
+    maxBids: 32,
+    bidBond: 1_000_000n,
+    protocolFeeBps: 0,
+    feeRecipient: "0x0000000000000000000000000000000000000000" as Address,
+    committeeSetId: d.committeeSetId as Hex,
+    metadataHash: (await client.readContract({ address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "metadataHash", args: [name, details] })) as Hex,
+  };
+  await scopedWindow(deployer, [d.pealt, d.factory], 2, 1_500_000n);
+  await evm(deployer, "approveSupply", d.pealt, artifact("PealT.sol", "PealT").abi, "approve", [d.factory, cfg.totalSupply]);
+  const sim = await client.simulateContract({ account: deployer.evm, address: d.factory, abi: sealedAuctionFactoryAbi, functionName: "createAuction", args: [cfg, name, details] });
+  await evm(deployer, "createAuction", d.factory, sealedAuctionFactoryAbi as Abi, "createAuction", [cfg, name, details]);
+  const auction = sim.result as Address;
+  record.auction = auction;
+  console.log(`auction ${auction}`);
+
+  // 2. Bidders check the committee against the chain and REST, seal and commit.
+  const committee = await readCommittee(client, d.registry, d.committeeSetId);
+  const recipients = await resolveCommittee(committee, { client, rest: network().rest });
+  console.log(`committee verified: ${committee.members.map((m) => m.address).join(", ")}`);
+  const plan: [Named, bigint, number][] = [
+    [bidders[0]!, parseUnits("60", 18), 3],
+    [bidders[1]!, parseUnits("70", 18), 1],
+  ];
+  for (const [b, qty, tick] of plan) {
+    const ctx = await bidContext(client, auction, b.evm, qty, tick);
+    await scopedWindow(b, [d.fusd, auction], 2, 1_000_000n);
+    await evm(b, `${b.name}.approve`, d.fusd, erc20Abi as Abi, "approve", [auction, ctx.escrow + ctx.bond]);
+    const c = sealBid({ chainId: 9800n, auction, bidder: b.evm, seq: ctx.seq, quantity: qty, tick, recipients, threshold: committee.threshold });
+    await evm(b, `${b.name}.commitBid`, auction, sealedAuctionAbi as Abi, "commitBid", [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, ctx.escrow]);
+    // The window admitted exactly these 2 transactions and is now spent; closing it would only cost a fee.
+  }
+
+  // 3. Close on chain.
+  await waitUntil(cfg.endTime, "the end of bidding");
+  await scopedWindow(deployer, [auction], 8, 3_000_000n, 3600);
+  await evm(deployer, "closeCommit", auction, sealedAuctionAbi as Abi, "closeCommit");
+
+  // 4. A forged release (outsider's ML-DSA-87 key in member 3's slot): simulated, refused by pqcVerify.
+  const outsider = await deriveUnifiedAccount(generateMnemonic(256), 0);
+  const count = Number(await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "bidCount" }));
+  const zeros = Array.from({ length: count }, () => 0n);
+  const bitmap = (1n << BigInt(count)) - 1n;
+  const dl = (await client.getBlock()).timestamp + 600n;
+  const forgedMsg = (await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "releaseMessage", args: [3, zeros, bitmap, dl] })) as Hex;
+  try {
+    await client.simulateContract({
+      account: deployer.evm,
+      address: auction,
+      abi: sealedAuctionAbi,
+      functionName: "submitRelease",
+      args: [3, zeros, bitmap, dl, toHex(pqcSign(outsider.pqc.secretKey, hexToBytes(forgedMsg)))],
+    });
+    throw new Error("the forged release was ACCEPTED in simulation");
+  } catch (err) {
+    const m = err instanceof Error ? err.message : String(err);
+    if (!/ReleaseSignatureInvalid/.test(m)) throw err;
+    console.log("forged release for member 3: refused by the real pqcVerify (ReleaseSignatureInvalid)");
+    record.forgedRelease = "refused: ReleaseSignatureInvalid (eth_call against the live pqcVerify)";
+  }
+
+  // 5. Members 1 and 2 release; member 3 stays offline.
+  for (const m of members.slice(0, 2)) {
+    await scopedWindow(m, [auction], 1, 3_000_000n);
+    const r = await memberStep({
+      client,
+      auction,
+      me: { address: m.evm, pqc: m.acc.pqc, seal: m.seal },
+      send: async (tx) => {
+        const rc = await sendEvm(m.acc, tx);
+        gas[`${m.name}.submitRelease`] = rc.gasUsed.toString();
+        return rc.transactionHash;
+      },
+      log: (l) => console.log(l),
+    });
+    if (r.kind !== "released") throw new Error(`${m.name}: ${JSON.stringify(r)}`);
+    txs[`${m.name}.submitRelease`] = r.tx; // its 1-transaction window is now spent
+  }
+
+  // 6. After the release deadline: open, finalize, pay out (deployer as keeper).
+  await evm(deployer, "openBids", auction, sealedAuctionAbi as Abi, "openBids", [Array.from({ length: count }, (_, i) => BigInt(i))]);
+  await waitUntil(cfg.releaseDeadline, "the release deadline (member 3 is offline)");
+  await evm(deployer, "finalize", auction, sealedAuctionAbi as Abi, "finalize");
+  for (let i = 0; i < count; i++) await evm(deployer, `claim${i}`, auction, sealedAuctionAbi as Abi, "claim", [BigInt(i)]);
+  await evm(deployer, "claimProceeds", auction, sealedAuctionAbi as Abi, "claimProceeds");
+  await evm(deployer, "claimUnsold", auction, sealedAuctionAbi as Abi, "claimUnsold");
+  await closeWindow(deployer);
+
+  const price = await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "clearingPrice" });
+  const bids = [];
+  for (let i = 0; i < count; i++) bids.push(await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "getBid", args: [BigInt(i)] }));
+  record.clearingPrice = price.toString();
+  record.bids = bids.map((b) => ({ bidder: b.bidder, status: b.status, quantity: b.quantity.toString(), tick: b.tick }));
+  record.gasUsed = gas;
+  record.finishedAt = new Date().toISOString();
+  const out = join(ROOT, "deployments", `demo-${auction}.json`);
+  writeFileSync(out, `${JSON.stringify(record, null, 2)}\n`);
+  console.log(`settled at ${price} (fUSD base units per PEAL-T); wrote ${out}`);
+}
+
+/** Close an auction nobody bid on and return its supply to the issuer (deployer). */
+export async function closeEmpty(auction: Address): Promise<void> {
+  const client = publicClient();
+  const deployer = await load("deployer");
+  await scopedWindow(deployer, [auction], 2, 300_000n);
+  try {
+    const state = Number(await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "state" }));
+    if (state === 2) {
+      const r = await sendEvm(deployer.acc, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "closeCommit" }) });
+      console.log(`closeCommit: tx ${r.transactionHash}`);
+    }
+    const r = await sendEvm(deployer.acc, { to: auction, data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "claimUnsold" }) });
+    console.log(`claimUnsold: tx ${r.transactionHash}`);
+  } finally {
+    await closeWindow(deployer);
+  }
+}
+
+/**
+ * Open the scoped window an account needs before using the web pages on an
+ * auction: bidders may call fUSD and the auction (approve + commit), members
+ * the auction (one release), the deployer the auction (close, open, finalize, claims).
+ */
+export async function windowFor(name: string, auction: Address): Promise<void> {
+  const n = await load(name);
+  if (BIDDERS.includes(name as never)) await scopedWindow(n, [FUSD, auction], 2, 1_000_000n);
+  else if (COMMITTEE.includes(name as never)) await scopedWindow(n, [auction], 1, 3_000_000n);
+  else await scopedWindow(n, [auction], 10, 3_000_000n, 3600);
+}

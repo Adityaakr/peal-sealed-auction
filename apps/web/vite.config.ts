@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(import.meta.dirname, "index.html"),
+        issuer: resolve(import.meta.dirname, "issuer.html"),
         bidder: resolve(import.meta.dirname, "bidder.html"),
         committee: resolve(import.meta.dirname, "committee.html"),
         results: resolve(import.meta.dirname, "results.html"),
