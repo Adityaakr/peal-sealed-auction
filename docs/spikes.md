@@ -124,6 +124,17 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | From the bid page? | Yes, in the production build. The guest linked an injected MetaMask stand-in (EIP-6963 `io.metamask`, `personal_sign` only): 3 prompts, the link proof and two calls. It then relayed approve + commitBid | link `C2914126…9E37`, bid `3F5BAD73…4109` |
 | Testing note | A Playwright init script must not read `localStorage` before announcing a provider (it throws in opaque-origin frames). A function compiled by tsx carries `__name` helpers the page lacks, so the stand-in is injected as text | `scripts/testnet/metamask-page-proof.ts` |
 
+## 2026-11-17, the Asset Kit guard and PEAL-B
+
+| Question | Finding | How |
+|---|---|---|
+| Does the Asset Kit guard see the live precompile? | Yes: `precompileActive` true; the deployer, bidder1 and bidder2 are hybrid holders; a fresh address is not | `npm run testnet -- bond`, guard `0x13c97832…3303` |
+| Can the factory fund an auction of a token that checks recipients? | Only if the token admits the factory (it holds the supply between `transferFrom` and `fund`) and the clone before `isAuction` is set. PEAL-B matches the clone by its EIP-1167 code hash, which exists as soon as the clone does | `createAuction` `0x6551bf6c…ed84` |
+| Do payouts pass the guard on chain? | Yes: `claim` sent 30 and 70 PEAL-B to the bidders (127k and 122k gas), the unsold 0 back; a transfer to a keyless address reverts `NotEligible` | `0x4a796ff9…75fd`, `0x1c216b6b…e7a1` |
+| Testing with the kit's mock | The guard forwards 50k gas to `pqcKeyStatus`. The mock reads a stored 2,592-byte key, which costs more than that when cold, so the guard fails closed in Foundry. The tests give holders short stand-in keys (the guard does not check length); the real precompile charges a flat 2,500 | `test/PealBond.t.sol` |
+| Submodules | The Asset Kit nests eight submodules (T-REX, CMTAT, ONCHAINID, OpenZeppelin v4 and v5); the guard needs none of them (OpenZeppelin comes from this repository's remapping). CI checks out submodules non-recursively | `.github/workflows/ci.yml` |
+| A run interrupted mid-settle | The machine restarted after `openBids`; `bond.ts` resumes with `finalize` in the payout window instead of settling again | `deployments/bond-demo.json` |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

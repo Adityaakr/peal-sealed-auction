@@ -1,0 +1,44 @@
+{
+  "network": "qorechain-diana",
+  "txs": {
+    "deployWindow": "5D2BCB0B28EC57D8D4DC91AC3BD042F161BFB873957E1BEFBA973A1CE623BE0B",
+    "guard": "0x2de7bc0db0dbe481594f2147e5dd38584b79ca40d6bec36313ba6a5ce0089e9c",
+    "bond": "0xe89c8238562b284e3d4f493f4a6a92448f5e79cd12035da235fb798872e0167e",
+    "approveSupply": "0xb1412fe9dae8c3c3b53d3ac5d7e356d5c76dd1bc77cca282a638ec24a10c101e",
+    "createAuction": "0x6551bf6cc76205043611e4587de5ea6f73dec42a1c3c7f293182375487fbed84",
+    "bidder1.approve": "0x979c2dfb2d13871e11e19fb57fc8af18fc4cc0e9de850f9535c033c652c886d0",
+    "bidder1.commitBid": "0xbdf27079004f4f5d7648f86657842390be9679652199230e3b8d924f3251a2c6",
+    "bidder2.approve": "0x3a0e0353fc7d81ab2b7ed6b4abb02a869ead544ff145c3c3e6d79a7f51eba2eb",
+    "bidder2.commitBid": "0xa04029d316fa6dd440fd1f7a50aa8c2263e29d2c4799841063ec87a198d5c056",
+    "finalize": "0xbd8e16b3631a03a5b64c9e3e619f3eb909c912178ecf83c985a606e2cd698f62",
+    "claim0": "0x4a796ff92eed3ad5624b189e5cda171471acc1cf0cce6f829316870d576075fd",
+    "claim1": "0x1c216b6bc9212e1d9afb2a948086417813c556e5e35a4446f5bfae5137a5e7a1",
+    "claimProceeds": "0xb6590e11528488cb8b15ddc28e981a244a0f26b6c20a127be522cf53f0d555f5",
+    "claimUnsold": "0x396ab187731fa9b4ccdc38d4cd575e9b05e7fbc0e3d7a9851825ff02bf1daeb5",
+    "closeCommit": "0xe0ad21f07064503c28c217bed7b4a9a494900d3d244e53e834e36972bf1bf5da",
+    "committee1.submitRelease": "0x8745144b53bf564a868ed4f41d0295782399317946238e4412f629be8d57ae84",
+    "committee2.submitRelease": "0x633cd55b3c72204acfb1ed0dea31134b0337c13e50e90ecb8715382d52fc7f83",
+    "openBids": "0xb69137ec4da20c6bdeb0877ae9f912da846cf285030c826102f52485392bf5bd"
+  },
+  "guard": "0x13c978322103fc9b78f622999053cb458d893303",
+  "bond": "0xa796bc03cac5e3bb5c099f0a38fd0cc81e0a0aab",
+  "guardReads": {
+    "precompileActive": true,
+    "deployerIsHybridHolder": true,
+    "bidder1IsHybridHolder": true,
+    "bidder2IsHybridHolder": true,
+    "freshAddressIsHybridHolder": false
+  },
+  "auction": "0xd919F252cD684AF3822DF42F160BAeDf61DCDF68",
+  "pealB": {
+    "bidder1": "30",
+    "bidder2": "70",
+    "issuer": "900",
+    "auction": "0"
+  },
+  "clearingPrice": "1.5",
+  "refusal": "transfer of PEAL-B from bidder1 to 0xaAf898EA97d0c2A8E426726A6F8610d28327BDa5 (no ML-DSA-87 key): reverts NotEligible",
+  "date": "2026-11-17T09:27:24.886Z",
+  "what": "A sealed issue of PEAL-B, a demo bond only accounts with a registered ML-DSA-87 key may hold (QoreChain Asset Kit QoreChainHybridHolderGuard v0.1.0, unchanged), sold on this venue's factory: npm run testnet -- bond",
+  "note": "The first run was interrupted by a machine restart after openBids; the resumed run finalized and paid out in one scoped window."
+}

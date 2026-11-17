@@ -14,6 +14,7 @@ remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "qore-pq-kit/=lib/qore-pq-kit/src/",
   "qore-pq-kit-test/=lib/qore-pq-kit/test/",
+  "qorechain-asset-kit/=lib/qorechain-asset-kit/contracts/src/",
 ]
 fs_permissions = [{ access = "read", path = "./vectors" }]
 
