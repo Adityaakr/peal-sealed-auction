@@ -18,6 +18,10 @@ export const ALLOWED_GET = [
   /^\/qorechain\/pqc\/v1\/evm_window\/[a-z0-9]+$/,
   // The AMM's pools: a guest short of fUSD for a sale buys it with QOR (client/amm.ts).
   /^\/qorechain\/amm\/v1\/pools$/,
+  // MetaMask as a linked key (client/linked-key.ts): the key's nonce, the digest version, the account's rules.
+  /^\/qorechain\/abstractaccount\/v1\/auth_nonce\/[a-z0-9]+\/(0x)?[0-9a-fA-F]+$/,
+  /^\/qorechain\/abstractaccount\/v1\/accounts\/[a-z0-9]+\/(spending_rules|authenticators)$/,
+  /^\/cosmos\/upgrade\/v1beta1\/applied_plan\/v3\.2\.3$/,
 ];
 
 export function allowed(method: string, path: string): boolean {

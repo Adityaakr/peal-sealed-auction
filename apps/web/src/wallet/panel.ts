@@ -289,7 +289,7 @@ function metamaskSection(): HTMLElement {
       emit();
     }
   });
-  return section("MetaMask", h("p.small.muted", "Connects and adds the QoreChain testnet network. It cannot sign for QoreChain by itself."), b, name ? null : h("p.small.muted", { style: "margin:8px 0 0" }, "No browser wallet found."));
+  return section("MetaMask", h("p.small.muted", "Connects and adds the QoreChain testnet network. It cannot sign for QoreChain by itself; on the bid page it can sign bids through your guest account, which links it under a spending rule for that one auction."), b, name ? null : h("p.small.muted", { style: "margin:8px 0 0" }, "No browser wallet found."));
 }
 
 function draw(): void {

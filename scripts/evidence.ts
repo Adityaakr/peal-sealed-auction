@@ -14,7 +14,8 @@
  * possession and the window.
  *
  * Writes deployments/evidence.json and exits 1 if any native transaction fails
- * its hybrid check or any recorded transaction failed on chain.
+ * its hybrid check, any recorded transaction failed on chain, or a refusal
+ * recorded on purpose (label "refused" or "overLimit") did not fail.
  */
 import { execFile } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -90,7 +91,9 @@ const rows = await pool(txs, 4, async (t) => {
   // The lane is what the transaction carries, not the hash's form: an EVM transaction also has a native-style hash.
   const evm = (row.messages as string[]).every((m) => m.endsWith("MsgEthereumTx"));
   row.lane = evm ? "evm" : "native";
-  if (tx.success === false) bad++;
+  // Refusals recorded on purpose (a call outside a spending rule, over its cap) must NOT succeed.
+  row.expectedRefusal = /refus|overLimit/i.test(t.label);
+  if (row.expectedRefusal ? tx.success !== false : tx.success === false) bad++;
   if (!evm) {
     const pq = (await qore(["pq", "status", t.hash])) as Pq;
     const s = pq.transaction_status;

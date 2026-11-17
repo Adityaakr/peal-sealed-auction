@@ -6,6 +6,7 @@
 import type { UnifiedAccount } from "@qorechain/sdk";
 import type { TransactionReceipt } from "viem";
 import * as guest from "./guest.ts";
+import * as metamask from "./metamask.ts";
 import type { QorexAccount } from "./qorex.ts";
 
 export interface WalletState {
@@ -109,6 +110,41 @@ export async function buyOnAmm(title: string, erc20: `0x${string}`, want: bigint
   try {
     const { tx } = await guest.buyOnAmm(state.guest, erc20, want, log);
     log(`${title}: done.`);
+    return tx;
+  } catch (e) {
+    state.error = e instanceof Error ? e.message.split("\n")[0] : String(e);
+    return undefined;
+  } finally {
+    state.busy = undefined;
+    await refreshGuest();
+  }
+}
+
+/**
+ * Run `calls` signed in MetaMask, relayed by the guest account under a spending
+ * rule for this auction (`guest.runWithMetaMask`). Same drawer logging as `act`.
+ */
+export async function actWithMetaMask(
+  title: string,
+  scope: { auction: `0x${string}`; token: `0x${string}`; faucet?: `0x${string}`; perBid: bigint; daily: bigint },
+  calls: guest.Call[],
+): Promise<string | undefined> {
+  const provider = metamask.provider();
+  if (!state.guest || !state.metamask || !provider) {
+    state.error = "Connect MetaMask and keep a guest account: the guest is the post-quantum account MetaMask acts for.";
+    openPanel();
+    emit();
+    return undefined;
+  }
+  if (state.busy) return undefined;
+  state.busy = title;
+  state.error = undefined;
+  state.log = [];
+  emit();
+  openPanel();
+  try {
+    const tx = await guest.runWithMetaMask(state.guest, { provider, address: state.metamask.address as `0x${string}` }, scope, calls, log);
+    log(`${title}: done (tx ${tx.slice(0, 10)}…).`);
     return tx;
   } catch (e) {
     state.error = e instanceof Error ? e.message.split("\n")[0] : String(e);

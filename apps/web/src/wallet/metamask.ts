@@ -45,6 +45,11 @@ function pick(): Announced | undefined {
   return undefined;
 }
 
+/** The connected wallet's EIP-1193 provider (for personal_sign when it bids through a linked key). */
+export function provider(): Eip1193 | undefined {
+  return pick()?.provider;
+}
+
 export function available(): string | undefined {
   return pick()?.info.name;
 }
