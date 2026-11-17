@@ -1,0 +1,81 @@
+{
+  "auction": "0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4",
+  "owner": "qor1ppnar99nxc8wq4pyjwt029v0ktcel55952jaj3",
+  "ownerEvm": "0x0867D194B3360Ee054249396F5158Fb2F19Fd285",
+  "metamask": "0x25bdbAA883f4BE1F63bCf2DD19C5fCa2C8e8c5b6",
+  "token": "0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e",
+  "txs": {
+    "link": "F18C068BDECA868D0C7C9D767EE29A3CF84BA19F08353E98319DCF01FC1C2DA2",
+    "bid": "8B0B3A1D9201A936EEF37AA271C0783F27095C77952EBEDA9153EA1C75FD46E3",
+    "refused": "B04CA6CDD914A6A0709E1F05AE9A5E83B1FC5DC4C4BA3EC3CDAF74912EC6145C"
+  },
+  "rule": {
+    "id": "peal-sealed-auction-metamask",
+    "enabled": true,
+    "perTxLimit": "0",
+    "dailyLimit": "0",
+    "allowedDenoms": [
+      "erc20/0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e"
+    ],
+    "denomLimits": [
+      {
+        "denom": "erc20/0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e",
+        "perTxLimit": "100000000000000000000",
+        "dailyLimit": "300000000000000000000"
+      }
+    ],
+    "allowedEvmCalls": [
+      "0xe6c2943ff47e908c8b42af4329fb4abd10452e57/0x379607f5",
+      "0x7edc65adc95de061887ecd6fc8629f2a99fffe9e/0x095ea7b3",
+      "0x9a98fc3b3b5078bd22bae5fb937395ba1ae8c7b4/0x77ecb498",
+      "0x9a98fc3b3b5078bd22bae5fb937395ba1ae8c7b4/0x379607f5"
+    ]
+  },
+  "overLimit": {
+    "tx": "837DBC8D7F6C714CB242AC56C921F41D2CAC8556119EA79DBA318243AED45F1B",
+    "what": "first run: a quantity in the wrong decimals made the approve ask for 5e11 PEAL-T; the chain executed the faucet claim and refused the approve on the rule's per-call PEAL-T limit",
+    "refusal": "per-tx limit 100000000000000000000erc20/0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e exceeded (attempted 500000000001000000000000000000): spending limit exceeded"
+  },
+  "ruleOnChain": {
+    "rules": [
+      {
+        "id": "peal-sealed-auction-metamask",
+        "daily_limit": "0",
+        "per_tx_limit": "0",
+        "allowed_denoms": [
+          "erc20/0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e"
+        ],
+        "enabled": true,
+        "allowed_evm_calls": [
+          "0xe6c2943ff47e908c8b42af4329fb4abd10452e57/0x379607f5",
+          "0x7edc65adc95de061887ecd6fc8629f2a99fffe9e/0x095ea7b3",
+          "0x9a98fc3b3b5078bd22bae5fb937395ba1ae8c7b4/0x77ecb498",
+          "0x9a98fc3b3b5078bd22bae5fb937395ba1ae8c7b4/0x379607f5"
+        ],
+        "denom_limits": [
+          {
+            "denom": "erc20/0x7eDc65adc95dE061887Ecd6fc8629f2a99fFfE9e",
+            "per_tx_limit": "100000000000000000000",
+            "daily_limit": "300000000000000000000"
+          }
+        ]
+      }
+    ],
+    "authenticator_rules": []
+  },
+  "bidId": 1,
+  "refusal": "a linked key with a spending rule may call 0x97143B771D34ddb9130b807b135Ae675A5a963CA with data only if the rule lists the call in allowed_evm_calls (or lists the token as \"erc20/0x97143B771D34ddb9130b807b135Ae675A5a963CA\" for a token transfer or approval): authenticator not permitted for this action",
+  "date": "2026-11-16T21:47:52.969Z",
+  "what": "A MetaMask key bids in the visitors' demo auction through a post-quantum account under a spending rule (@qorechain/wallet-adapter): from the CLI (owner bidder1, npm run testnet -- metamask-proof) and from the bid page (owner the browser guest, scripts/testnet/metamask-page-proof.ts)",
+  "page": {
+    "owner": "qor1dv5tstpxg2p5jdhl7we59jq8fjv7qzxe89zyjt",
+    "metamask": "0x204c68a60401DFc6394cD88dB25779F4D76667b5 (stand-in key; EIP-6963 provider answering personal_sign)",
+    "prompts": 3,
+    "txs": {
+      "link": "C2914126D25511172BE04B22F76053654D5ACFD1D7B12A56B68F1F35CCED9E37",
+      "bid": "3F5BAD7342E9C82914B5F39A1D8330E8004784C431053B334FFBFDDFA1504109"
+    },
+    "how": "production build under npm run web:preview, headless Chromium"
+  },
+  "committeeCanOpen": "dry run on 17 November: member 1's readBids + openMemberShares opened its share of bid 1 (relayed MsgExecuteEVM) from the calldata envelopes, nothing sent"
+}

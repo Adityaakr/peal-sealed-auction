@@ -173,23 +173,32 @@ export function funded(st: GuestStatus): boolean {
 
 // ---------------------------------------------------------------- native (hybrid-signed) transactions
 
-async function broadcast(acc: UnifiedAccount, messages: { typeUrl: string; value: unknown }[], mode: "hybrid" | "classical" = "hybrid") {
+let lastResult: unknown;
+
+async function broadcast(
+  acc: UnifiedAccount,
+  messages: { typeUrl: string; value: unknown }[],
+  mode: "hybrid" | "classical" = "hybrid",
+  registry?: import("@cosmjs/proto-signing").Registry,
+  fee: { amount: { denom: string; amount: string }[]; gas: string } = NATIVE_FEE,
+) {
   const n = need();
   const s = await sdk();
   const { StargateClient } = await import("@cosmjs/stargate");
   const a = await getJson<{ account?: Record<string, unknown> }>(`/cosmos/auth/v1beta1/accounts/${acc.cosmos}`);
   const base = (a?.account?.base_account ?? a?.account ?? {}) as Record<string, string>;
-  const signer = new s.EthNativeSigner(acc, { signMode: mode, rest: n.rest });
+  const signer = new s.EthNativeSigner(acc, { signMode: mode, rest: n.rest, ...(registry ? { registry } : {}) });
   const transport = await StargateClient.connect(n.cometRpc);
   try {
     const res = await signer.signAndBroadcast(transport, {
       chainId: n.chainId,
       accountNumber: BigInt(base.account_number ?? "0"),
       sequence: BigInt(base.sequence ?? "0"),
-      fee: NATIVE_FEE,
+      fee,
       messages: messages as never,
     });
     if (res.code !== 0) throw new Error(`transaction ${res.transactionHash} failed (code ${res.code}): ${res.rawLog ?? ""}`);
+    lastResult = res;
     return res.transactionHash as string;
   } finally {
     transport.disconnect();
@@ -212,6 +221,76 @@ export async function registerKey(acc: UnifiedAccount, log: Log): Promise<void> 
   const msg = s.buildRegisterPqcKeyMsg(acc.cosmos, { pqcKeypair: acc.pqc, proofOfPossession: proof });
   const tx = await broadcast(acc, [msg], "classical");
   log(`Key registered (tx ${tx.slice(0, 10)}…).`);
+}
+
+/**
+ * Buy `want` fUSD on the testnet AMM with QOR and convert it to the ERC-20 the
+ * auction pulls, in one hybrid-signed transaction (`client/amm.ts`). Returns the
+ * quote it used and the transaction hash.
+ */
+export async function buyOnAmm(acc: UnifiedAccount, erc20: Address, want: bigint, log: Log): Promise<{ amountIn: bigint; tx: string }> {
+  const n = need();
+  if (n.local) throw new Error("The local chain has no AMM.");
+  await registerKey(acc, log);
+  const amm = await import("../../../../client/amm.ts");
+  const denom = amm.bankDenomOf(erc20);
+  const pool = amm.findPool(await amm.fetchPools(n.rest), "uqor", denom);
+  if (!pool) throw new Error("No QOR pool for this token on the testnet AMM.");
+  const q = amm.quoteBuy(pool, "uqor", denom, want);
+  const st = await status(acc);
+  if (st.qor < q.amountIn + 400_000n) throw new Error(`Buying needs about ${Number(q.amountIn + 400_000n) / 1e6} QOR; this account holds ${Number(st.qor) / 1e6}.`);
+  log(`Buying on the AMM (pool ${pool.id}): at most ${Number(q.amountIn) / 1e6} QOR in, swap and convert in one transaction…`);
+  const tx = await broadcast(acc, amm.buyMessages(acc.cosmos, acc.evm as Address, q), "hybrid", amm.ammRegistry());
+  log(`Bought and converted (tx ${tx.slice(0, 10)}…).`);
+  return { amountIn: q.amountIn, tx };
+}
+
+/**
+ * Bid with MetaMask through this guest account (`client/linked-key.ts`). The
+ * guest is the post-quantum owner: once, it links the MetaMask address under a
+ * spending rule for this auction (MetaMask signs the link message). Then MetaMask
+ * signs each call (EIP-191) and the guest relays them as MsgExecuteEVM, hybrid-
+ * signed, with no EVM window. Each call's own outcome is checked.
+ */
+export async function runWithMetaMask(
+  acc: UnifiedAccount,
+  mm: { provider: import("../../../../client/linked-key.ts").Eip1193; address: Address },
+  scope: { auction: Address; token: Address; faucet?: Address; perBid: bigint; daily: bigint },
+  calls: Call[],
+  log: Log,
+): Promise<string> {
+  const n = need();
+  if (n.local) throw new Error("The local chain has no smart accounts; use the guest account directly.");
+  await registerKey(acc, log);
+  const lk = await import("../../../../client/linked-key.ts");
+  const s = await sdk();
+  const { linked } = await s.fetchAuthNonce({ rest: n.rest, address: acc.cosmos, pubkey: mm.address });
+  const { rules } = await lk.readLink(n.rest, acc.cosmos);
+  const want = lk.bidRule(scope);
+  const ruleOk = JSON.stringify(rules ?? {}).toLowerCase().includes(`${scope.auction.toLowerCase()}/${lk.SELECTORS.commitBid}`);
+  if (!linked || !ruleOk) {
+    log(`Linking MetaMask ${mm.address.slice(0, 10)}… to this account: it may claim from the demo faucet, approve the auction's token and bid in this auction only, capped per call and per day, for 24 hours. Confirm the link message in MetaMask…`);
+    const msgs = await lk.linkMetaMaskMsgs({ provider: mm.provider, address: mm.address, owner: acc.cosmos, chainId: n.chainId, rule: want, expiryUnix: BigInt(Math.floor(Date.now() / 1000) + 24 * 3600) });
+    const tx = await broadcast(acc, msgs, "hybrid");
+    log(`MetaMask linked for 24 hours (tx ${tx.slice(0, 10)}…).`);
+  }
+  log(`Sign ${calls.length} call${calls.length > 1 ? "s" : ""} in MetaMask (one prompt each)…`);
+  const signed = await lk.metaMaskCalls({
+    provider: mm.provider,
+    address: mm.address,
+    owner: acc.cosmos,
+    relayer: acc.cosmos,
+    chainId: n.chainId,
+    rest: n.rest,
+    calls: calls.map((c) => ({ to: c.to, data: c.data, gasLimit: 900_000n })),
+  });
+  log("Relaying them from this account (hybrid-signed, no window)…");
+  // The relay carries the EVM execution of every call: allow 3M gas (the auction's commit is about 450k).
+  const tx = await broadcast(acc, signed, "hybrid", undefined, { amount: [{ denom: "uqor", amount: "450000" }], gas: "3000000" });
+  const results = lk.executionResults(lastResult as never);
+  results.forEach((r, i) => log(`${calls[i]?.label ?? `call ${i + 1}`}: ${r.success ? "done" : `refused: ${r.error}`}`));
+  if (results.length !== calls.length || results.some((r) => !r.success)) throw new Error(`a MetaMask call was refused (tx ${tx})`);
+  return tx;
 }
 
 // ---------------------------------------------------------------- EVM, inside a scoped window

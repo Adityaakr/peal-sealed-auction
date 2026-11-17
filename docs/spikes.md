@@ -92,6 +92,49 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Does `@qorechain/wallet-adapter` install next to the SDK? | Not as is: its peers ask for cosmjs 0.32 and the SDK uses 0.39 (`ERESOLVE`, as its docs warn). An `overrides` entry that points its two peers at 0.39 installs cleanly | `npm i @qorechain/wallet-adapter@0.6.0` |
 | Is the `@handle` registry usable from a page? | Not yet: `@qorechain/handles` needs the registry's base URL and ed25519 key, and neither is published | package README, docs page "Chain bridge and handles" |
 
+## 2026-11-17, evidence and inventory tools
+
+| Question | Finding | How |
+|---|---|---|
+| What does `qore pq status` say about a key registration? | Tier `enrollment`, not `pqc`: `MsgRegisterPQCKeyV2` is the one classical message, carrying its own proof of possession. Every other native transaction recorded here is tier `pqc` with the ML-DSA-87 layer verified (sign-bytes v2) | `npm run evidence` |
+| Can the hash form tell the lane? | No. The guest proof recorded some EVM transactions by their native-style hash; `qore tx get` shows them as `MsgEthereumTx`, tier `classical`. The evidence script classifies by message type | same |
+| Does QoreScan see the post-quantum checks in the contracts? | Only with the kit's source included: `PqAuth.sol` is where `pqcVerify` and `pqcKeyStatus` are called. Scanning `src/` alone records only Keccak-256. Locations are file names without directories | `qorescan solidity src lib/qore-pq-kit/src` |
+| Do the endpoints negotiate post-quantum TLS? | Yes: both `api-testnet.qore.host` and `evm-testnet.qore.host` answer TLS 1.3 with the hybrid group X25519MLKEM768; their certificates are ECDSA | `npm run cbom` |
+| Does the MCP server start from `.mcp.json`? | Yes: `npx qorechain-mcp --network testnet` answers `initialize` and lists read-only tools (no signing tool) | `test-ts/mcp.test.ts` |
+
+## 2026-11-17, the AMM
+
+| Question | Finding | How |
+|---|---|---|
+| Which pools exist? | Five constant-product pools; pool 2 is fUSD (`erc20:0x9714…63CA`) against `uqor`, about 557 fUSD and 8,149 QOR: 1 fUSD costs about 14.7 QOR. Swap fee 0.30 % of the input, at most 5 % price impact per swap | `GET /qorechain/amm/v1/pools`, `/params` |
+| Could an issuer seed a PEAL-T pool at the clearing price? | No: the erc20 module has `permissionless_registration: false`, so PEAL-T cannot become a bank coin, and a pool costs 100 QOR to create | `GET /cosmos/evm/erc20/v1/params`, AMM params |
+| Can one transaction swap and convert? | Yes: `MsgSwapExactIn` (floor = the amount wanted) then `MsgConvertCoin` of exactly that amount, hybrid-signed together. The ERC-20 balance grew by exactly the amount; any excess stays as the bank coin | bidder1 `3E4AEEBD…6AED` (+0.2 fUSD); the browser guest from the bid page `6EBF2D96…3E72` (+0.1 fUSD, 1.48 QOR at most) |
+| What does the page need from REST? | `/qorechain/amm/v1/pools`, now in `proxy/allowlist.ts` and `vercel.json` | `npm run web:preview` |
+
+## 2026-11-17, MetaMask as a linked key
+
+| Question | Finding | How |
+|---|---|---|
+| Can a MetaMask key bid in this auction on QoreChain? | Yes, as an authenticator on a post-quantum account. The owner sends `MsgUpdateSpendingRules` and `MsgRegisterAuthenticator` in one hybrid transaction, the second with MetaMask's EIP-191 possession proof. MetaMask then signs each call's EVM-auth digest, and the owner relays them as `MsgExecuteEVM`. The calls run as the owner's 0x address, with no EVM window | bidder1: link `F18C068B…2DA2`, approve + commitBid `8B0B3A1D…46E3` (bid 1 of the open demo) |
+| Are the rule's ERC-20 limits enforced? | Yes. With PEAL-T listed as `erc20/0x7eDc…FfE9e` (100 per call), an approve of 5×10¹¹ PEAL-T was refused: "per-tx limit … exceeded … spending limit exceeded". The faucet claim in the same relay executed. Each call has its own outcome in a code-0 transaction | `837DBC8D…5F1B` |
+| A call outside `allowed_evm_calls`? | Refused: "a linked key with a spending rule may call 0x9714… with data only if the rule lists the call in allowed_evm_calls (or lists the token as "erc20/0x9714…" for a token transfer or approval)" | approve fUSD to the key itself, `B04CA6CD…145C` |
+| Can the committee open such a bid? | Yes: a relayed bid's envelopes come from the `MsgExecuteEVM` calldata (`client/release.ts`). Member 1's dry run opened its share of bid 1 | `readBids` + `openMemberShares`, nothing sent |
+| What does a page need from REST? | `/qorechain/abstractaccount/v1/auth_nonce/{account}/{key}` (the key's own sequence), `/cosmos/upgrade/v1beta1/applied_plan/v3.2.3` (which digest the chain verifies), and the account's `spending_rules` and `authenticators`. All four are in `proxy/allowlist.ts` and `vercel.json` | `npm run web:preview` |
+| Gas of a relay | Approve + commitBid with three envelopes fit in a 3M-gas native transaction (0.45 QOR fee) | both relays above |
+| From the bid page? | Yes, in the production build. The guest linked an injected MetaMask stand-in (EIP-6963 `io.metamask`, `personal_sign` only): 3 prompts, the link proof and two calls. It then relayed approve + commitBid | link `C2914126…9E37`, bid `3F5BAD73…4109` |
+| Testing note | A Playwright init script must not read `localStorage` before announcing a provider (it throws in opaque-origin frames). A function compiled by tsx carries `__name` helpers the page lacks, so the stand-in is injected as text | `scripts/testnet/metamask-page-proof.ts` |
+
+## 2026-11-17, the Asset Kit guard and PEAL-B
+
+| Question | Finding | How |
+|---|---|---|
+| Does the Asset Kit guard see the live precompile? | Yes: `precompileActive` true; the deployer, bidder1 and bidder2 are hybrid holders; a fresh address is not | `npm run testnet -- bond`, guard `0x13c97832…3303` |
+| Can the factory fund an auction of a token that checks recipients? | Only if the token admits the factory (it holds the supply between `transferFrom` and `fund`) and the clone before `isAuction` is set. PEAL-B matches the clone by its EIP-1167 code hash, which exists as soon as the clone does | `createAuction` `0x6551bf6c…ed84` |
+| Do payouts pass the guard on chain? | Yes: `claim` sent 30 and 70 PEAL-B to the bidders (127k and 122k gas), the unsold 0 back; a transfer to a keyless address reverts `NotEligible` | `0x4a796ff9…75fd`, `0x1c216b6b…e7a1` |
+| Testing with the kit's mock | The guard forwards 50k gas to `pqcKeyStatus`. The mock reads a stored 2,592-byte key, which costs more than that when cold, so the guard fails closed in Foundry. The tests give holders short stand-in keys (the guard does not check length); the real precompile charges a flat 2,500 | `test/PealBond.t.sol` |
+| Submodules | The Asset Kit nests eight submodules (T-REX, CMTAT, ONCHAINID, OpenZeppelin v4 and v5); the guard needs none of them (OpenZeppelin comes from this repository's remapping). CI checks out submodules non-recursively | `.github/workflows/ci.yml` |
+| A run interrupted mid-settle | The machine restarted after `openBids`; `bond.ts` resumes with `finalize` in the payout window instead of settling again | `deployments/bond-demo.json` |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

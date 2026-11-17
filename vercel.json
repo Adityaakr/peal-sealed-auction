@@ -6,6 +6,11 @@
   "framework": null,
   "rewrites": [
     { "source": "/rest/qorechain/pqc/v1/:path*", "destination": "https://api-testnet.qore.host/qorechain/pqc/v1/:path*" },
+    { "source": "/rest/qorechain/abstractaccount/v1/auth_nonce/:account/:key", "destination": "https://api-testnet.qore.host/qorechain/abstractaccount/v1/auth_nonce/:account/:key" },
+    { "source": "/rest/qorechain/abstractaccount/v1/accounts/:account/spending_rules", "destination": "https://api-testnet.qore.host/qorechain/abstractaccount/v1/accounts/:account/spending_rules" },
+    { "source": "/rest/qorechain/abstractaccount/v1/accounts/:account/authenticators", "destination": "https://api-testnet.qore.host/qorechain/abstractaccount/v1/accounts/:account/authenticators" },
+    { "source": "/rest/cosmos/upgrade/v1beta1/applied_plan/v3.2.3", "destination": "https://api-testnet.qore.host/cosmos/upgrade/v1beta1/applied_plan/v3.2.3" },
+    { "source": "/rest/qorechain/amm/v1/pools", "destination": "https://api-testnet.qore.host/qorechain/amm/v1/pools" },
     { "source": "/rest/cosmos/tx/v1beta1/txs", "destination": "https://api-testnet.qore.host/cosmos/tx/v1beta1/txs" },
     { "source": "/rest/cosmos/bank/v1beta1/balances/:address", "destination": "https://api-testnet.qore.host/cosmos/bank/v1beta1/balances/:address" },
     { "source": "/rest/cosmos/auth/v1beta1/accounts/:address", "destination": "https://api-testnet.qore.host/cosmos/auth/v1beta1/accounts/:address" },

@@ -32,6 +32,7 @@ import {
 } from "./common.ts";
 import { amount, duration, h, icon } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
+import { actWithMetaMask, buyOnAmm } from "./wallet/store.ts";
 
 const faucetAbi = parseAbi(["function claim(uint256 amount)", "function claimableBy(address who) view returns (uint256 amount, uint64 availableAt)"]);
 
@@ -102,6 +103,36 @@ async function main(): Promise<void> {
   );
   app.querySelector(".card.account")?.append(balLine);
 
+  // A guest bidding in a fUSD sale on the testnet can buy fUSD with its QOR on the AMM (client/amm.ts).
+  if (cfg.network === "testnet" && s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase()) {
+    const amt = el("input", { class: "input", id: "amm-amount", value: "1", "aria-label": `${quoteSym} to buy`, style: "width:80px" }) as HTMLInputElement;
+    const quoteLine = el("span", { class: "small muted", id: "amm-quote" });
+    const buy = el("button", { class: "btn btn-small secondary", id: "amm-buy" }, `Buy ${quoteSym} on the AMM`) as HTMLButtonElement;
+    const requote = async () => {
+      try {
+        const amm = await import("../../../client/amm.ts");
+        const denom = amm.bankDenomOf(s.cfg.quoteToken);
+        const pool = amm.findPool(await amm.fetchPools(cfg.rest), "uqor", denom);
+        if (!pool) return void (quoteLine.textContent = "No QOR pool for this token on the AMM.");
+        const q = amm.quoteBuy(pool, "uqor", denom, parseUnits(amt.value || "0", quoteDec));
+        quoteLine.textContent = `≈ ${fmt(q.amountIn, 6)} QOR at most (pool ${pool.id}, 0.30 % fee, 1 % room), swapped and converted in one transaction`;
+      } catch (e) {
+        quoteLine.textContent = e instanceof Error ? e.message : String(e);
+      }
+    };
+    amt.oninput = () => void requote();
+    buy.onclick = () =>
+      guard(buy, async () => {
+        if (actor?.kind !== "guest") throw new Error("the AMM step is for the guest account; a dev account uses npm run testnet -- fusd buy");
+        const tx = await buyOnAmm(`Buy ${amt.value} ${quoteSym} on the AMM`, s.cfg.quoteToken, parseUnits(amt.value || "0", quoteDec));
+        if (!tx) throw new Error("the AMM buy did not complete; see the wallet drawer");
+        logLine(`bought ${amt.value} ${quoteSym} on the AMM, tx ${short(tx)}`, "ok");
+        await showBalance();
+      });
+    app.querySelector(".card.account")?.append(el("div", { class: "row amm-row" }, el("span", { class: "small" }, `Short of ${quoteSym}? `), amt, buy, quoteLine));
+    void requote();
+  }
+
   // Step 1: the committee check.
   let recipients: SealRecipient[] | undefined;
   const comm = el("div", { class: "card step-card" }, h("div.step-head", h("span.step-n", "1"), el("h2", {}, "Check the committee")));
@@ -168,9 +199,22 @@ async function main(): Promise<void> {
   qty.addEventListener("input", () => void preview());
   tick.addEventListener("change", () => void preview());
 
-  sealBtn.onclick = () =>
-    guard(sealBtn, async () => {
+  // MetaMask, through the guest account as a linked key under a spending rule (client/linked-key.ts).
+  const sealMmBtn = el("button", { id: "seal-commit-metamask", class: "secondary" }, "Seal, and sign in MetaMask") as HTMLButtonElement;
+  if (cfg.network === "testnet") {
+    sealBtn.parentElement?.append(sealMmBtn);
+    sealBtn.parentElement?.after(
+      el(
+        "p",
+        { class: "small muted" },
+        "With MetaMask connected in the wallet, your guest account links it once under an on-chain spending rule. The rule allows only this auction, its token and the demo faucet, capped per call and per day. MetaMask then signs each call, and the guest relays it. A stolen MetaMask key can do nothing else.",
+      ),
+    );
+  }
+  const commitWith = (btn: HTMLButtonElement, viaMetaMask: boolean) =>
+    guard(btn, async () => {
       if (!actor) throw new Error("choose an account first");
+      if (viaMetaMask && actor.kind !== "guest") throw new Error("MetaMask bids through the guest account: choose the guest account");
       if (!recipients) throw new Error("check the committee first");
       const quantity = parseUnits(qty.value || "0", saleDec);
       if (quantity === 0n) throw new Error("enter a quantity");
@@ -185,9 +229,12 @@ async function main(): Promise<void> {
           actor.kind === "guest" && cfg.faucet && s.cfg.quoteToken.toLowerCase() === cfg.pealt.toLowerCase()
             ? ((await client.readContract({ address: cfg.faucet, abi: faucetAbi, functionName: "claimableBy", args: [actor.address] })) as [bigint, bigint])[0]
             : 0n;
-        if (bal + canClaim < needed) throw new Error(`needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}`);
+        if (bal + canClaim < needed)
+          throw new Error(
+            `needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}${s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase() && cfg.network === "testnet" ? `: buy the ${fmt(needed - bal, quoteDec)} ${quoteSym} shortfall on the AMM above` : ""}`,
+          );
         calls.push({ to: cfg.faucet!, data: encodeFunctionData({ abi: faucetAbi, functionName: "claim", args: [canClaim] }), label: `Claim ${amount(canClaim, quoteDec)} ${quoteSym} from the demo faucet` });
-        logLine(`not enough ${quoteSym}: the faucet claim joins the same window`, "info");
+        logLine(`not enough ${quoteSym}: the faucet claim joins the same ${viaMetaMask ? "relay" : "window"}`, "info");
       }
       const t0 = performance.now();
       const c = sealBid({ chainId: BigInt(cfg.chainId), auction, bidder: actor.address, seq: ctx.seq, quantity, tick: t, recipients, threshold: s.threshold });
@@ -208,14 +255,28 @@ async function main(): Promise<void> {
           label: "Commit the sealed bid",
         },
       );
-      const hashes = await runCalls(cfg, actor, "Place a sealed bid", calls);
-      const hash = hashes[hashes.length - 1]!;
+      let hash: string;
+      if (viaMetaMask) {
+        const perBid = parseUnits("100", quoteDec) > needed ? parseUnits("100", quoteDec) : needed;
+        const tx = await actWithMetaMask(
+          "Place a sealed bid, signed in MetaMask",
+          { auction, token: s.cfg.quoteToken, ...(cfg.faucet ? { faucet: cfg.faucet } : {}), perBid, daily: perBid * 3n },
+          calls,
+        );
+        if (!tx) throw new Error("the MetaMask bid did not complete; see the wallet drawer");
+        hash = tx;
+      } else {
+        const hashes = await runCalls(cfg, actor, "Place a sealed bid", calls);
+        hash = hashes[hashes.length - 1]!;
+      }
       show("commit tx", hash);
       logLine(`bid committed: escrow ${fmt(ctx.escrow, quoteDec)} + bond ${fmt(ctx.bond, quoteDec)} ${quoteSym}, tx ${short(hash)}`, "ok");
       out.append(
         el("div", {}, "next"),
         el("div", {}, "After the close the committee releases and the contract opens every bid. ", el("a", { href: `./results.html${carry(cfg)}` }, "Watch the results"), "."),
       );
-      await showBalance();
+            await showBalance();
     });
+  sealBtn.onclick = () => commitWith(sealBtn, false);
+  sealMmBtn.onclick = () => commitWith(sealMmBtn, true);
 }

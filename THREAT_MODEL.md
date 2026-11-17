@@ -18,6 +18,7 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | Relayer, keeper, anyone | gas | nothing; every privileged message carries its own signature, and every other step is permissionless |
 | REST proxy | nothing | nothing; its answers are checked against hashes the key owners signed on chain |
 | Guest account (a visitor's browser) | a testnet key pair in that browser's storage, a little test QOR and PEAL-T | nothing; it is a bidder like any other |
+| MetaMask linked to a guest account | a classical secp256k1 key | only what the account's spending rule admits: this auction, its token and the demo faucet, capped, for 24 hours |
 | Hosted site (Vercel) and its rewrites | the page code; forwards allowlisted REST reads and RPC broadcasts | to serve the code in this repository. It holds no keys; a broadcast it forwards is signed, so it can drop one but not change it |
 
 ## Attacks and what stops them
@@ -46,6 +47,8 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | The hosted rewrite or REST lies about a guest's balance, key or window | Only what the page shows is affected: the chain itself checks every key, window and balance, and a broadcast is signed before it leaves the browser | design |
 | The demo auction fills up with junk bids | At most 20 bids; each needs a registered ML-DSA-87 key, a window and a bond; junk is excluded and its bond burns | `create --max-bids 20`; `test_malformedPlaintextBurnsBond` |
 | Stolen classical (secp256k1) key | QoreChain admits EVM transactions only inside a window opened by a hybrid ML-DSA-87 signature. The scripts scope every window to the contracts an account needs and to an exact transaction count | testnet demo (scoped windows, spent windows inert) |
+| Stolen MetaMask key linked to a bidder's account | The key is an authenticator on the bidder's post-quantum account, linked by the owner's hybrid signature with a possession proof, for 24 hours. The account's spending rule admits only the demo faucet's `claim`, the quote token's `approve`, and `commitBid` and `claim` on that one auction, and caps the quote token per call and per day. Anything else comes back `success = false`, and the owner can revoke the key. Residual: within the caps the key can approve or transfer the quote token, because the chain lets a listed token move (Peal Bidder's finding) | `test-ts/linked-key.test.ts`; testnet: an approve of fUSD outside the rule refused (`B04CA6CD…145C`), an approve over the per-call cap refused (`837DBC8D…5F1B`), bids inside the rule executed (`8B0B3A1D…46E3`, `3F5BAD73…4109`) |
+| PEAL-B moved to, or allocated to, an account a classical key alone controls | PEAL-B admits a holder only if the Asset Kit guard finds a registered ML-DSA-87 key with proof of possession (`pqcKeyStatus`, failing closed when the precompile answers nothing), or the holder is the venue's factory or one of its auction clones (matched by EIP-1167 code hash). Residual: a holder's key status is read at receipt only; a demo token, not a compliance product | `test/PealBond.t.sol`; testnet payouts `0x4a796ff9…75fd`, `0x1c216b6b…e7a1`; `NotEligible` on a transfer to a keyless address |
 
 ## Design rules (from Peal's plan 017 review, credited)
 
@@ -70,6 +73,20 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 - **Classical:**
   - the EVM transaction signature itself (secp256k1). It is bounded by the ML-DSA-signed window that admits it.
   - X25519 inside the hybrid envelope. A break of X25519 alone does not open an envelope.
+
+### The inventory, measured (QoreScan)
+
+`npm run cbom` runs QoreChain's QoreScan over the contracts (with the kit's `PqAuth.sol`), the deployer, committee1 and bidder1 accounts, and the two public endpoints the pages use. It writes a CycloneDX 1.6 CBOM (`docs/qorescan/cbom.json`) and a draft crypto-agility statement (`docs/qorescan/agility-statement.md`). What it recorded, and what that means here:
+
+| Found | Where | Here |
+|---|---|---|
+| ML-DSA-87 (FIPS 204) | `pqcVerify` (0x0A01) and `pqcKeyStatus` (0x0A02) in `PqAuth.sol`; each account's registered key with proof of possession | releases and committee joins |
+| ML-KEM-1024 (FIPS 203) | committee1's registered KEM key | share envelopes |
+| Keccak-256 | the contracts' commitments, cipher and message hashing | a hash; Grover only halves its strength |
+| ECDSA secp256k1 | the EVM lane and each account's classical key | bounded by the ML-DSA-signed window, as above |
+| Ed25519, ECDSA P-256/P-384, RSA, X25519MLKEM768 | validator consensus keys and the endpoints' TLS | QoreChain's infrastructure, outside this project; the endpoints already negotiate the hybrid X25519MLKEM768 |
+
+QoreScan is an inventory aid, not a certification.
 
 ## Residual risks, stated plainly
 

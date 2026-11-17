@@ -7,3 +7,6 @@
 [submodule "lib/qore-pq-kit"]
 	path = lib/qore-pq-kit
 	url = https://github.com/Adityaakr/qore-pq-kit
+[submodule "lib/qorechain-asset-kit"]
+	path = lib/qorechain-asset-kit
+	url = https://github.com/qorechain/qorechain-asset-kit

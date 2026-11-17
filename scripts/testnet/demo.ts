@@ -26,7 +26,7 @@ import { BIDDERS, COMMITTEE, load, type Named } from "./lib.ts";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 
-async function scopedWindow(n: Named, targets: Address[], maxTxs: number, gasPerTx: bigint, blocks = 1800): Promise<void> {
+export async function scopedWindow(n: Named, targets: Address[], maxTxs: number, gasPerTx: bigint, blocks = 1800): Promise<void> {
   const maxValue = evmWindowCost({ gas: gasPerTx, maxFeePerGas: 250_000_000_000n, value: 0n }) * BigInt(maxTxs);
   const res = await broadcast(n.acc, [
     openEvmWindowMsg({ sender: n.acc.cosmos, blocks, maxTxs, maxValue, allowedTargets: targets.map((t) => t.toLowerCase()) }),
@@ -39,7 +39,7 @@ async function closeWindow(n: Named): Promise<void> {
   if (w.found) await broadcast(n.acc, [closeEvmWindowMsg(n.acc.cosmos)]);
 }
 
-async function waitUntil(t: bigint, what: string): Promise<void> {
+export async function waitUntil(t: bigint, what: string): Promise<void> {
   for (;;) {
     const now = (await publicClient().getBlock()).timestamp;
     if (now > t) return;

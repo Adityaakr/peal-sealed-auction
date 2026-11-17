@@ -1,0 +1,33 @@
+{
+  "note": "Public addresses of this project's throwaway testnet accounts (qorechain-diana). Secrets live outside the repository.",
+  "accounts": {
+    "deployer": {
+      "qor": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh",
+      "evm": "0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40"
+    },
+    "committee1": {
+      "qor": "qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx",
+      "evm": "0x64eE2394BE93B0e840b06fd497df90E5295786Ee"
+    },
+    "committee2": {
+      "qor": "qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v",
+      "evm": "0x75588D0B6117D3C05694B656228508D461A996c4"
+    },
+    "committee3": {
+      "qor": "qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx",
+      "evm": "0x0E7db45Da1fD3d974218E59CF8C4387789fF1714"
+    },
+    "bidder1": {
+      "qor": "qor1ppnar99nxc8wq4pyjwt029v0ktcel55952jaj3",
+      "evm": "0x0867D194B3360Ee054249396F5158Fb2F19Fd285"
+    },
+    "bidder2": {
+      "qor": "qor1dyzah7d5df6v8sy9p93fzx7ue57c2m4jakqvm4",
+      "evm": "0x6905DBf9b46a74C3c0850962911bDCCd3d856eB2"
+    },
+    "qorex-mock": {
+      "qor": "qor1a43h5ccgu3uar8pwr9mvwwgp9a4p5r6kww998m",
+      "note": "the official QoreX mock's own account (QoreX derivation path), used by qorex-proof"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "what": "Buying fUSD on the testnet AMM (pool 2, QOR/fUSD) and converting it to the ERC-20 the auctions pull, in one hybrid-signed transaction: from the CLI (bidder1) and from the bid page (the browser guest)",
+  "date": "2026-11-17",
+  "account": "qor1ppnar99nxc8wq4pyjwt029v0ktcel55952jaj3",
+  "pool": "2",
+  "quote": {
+    "fusd": "0.2",
+    "maxQor": "2.967648"
+  },
+  "txs": {
+    "topUp": "C52E8E8AD0934DF00E79D5170C460458DBFE2669B97E3627B11ADC5D81EF8269",
+    "swapAndConvert": "3E4AEEBDF6EC0589933C060DBD2AF4B2E1F938F57D0C455443FC308610676AED",
+    "guestTopUp": "7D20F42CD6E78A5A1EE6091D5BAA05BA8F82CED6B0EF62B1939EA823723549A0",
+    "guestSwapAndConvertFromBidPage": "6EBF2D96A00EDCA66E44CB64747615F802252259AA6DC9FBEFDB4C031A5B3E72"
+  },
+  "erc20Balance": {
+    "before": "110",
+    "after": "110.2"
+  },
+  "guest": {
+    "account": "qor1dv5tstpxg2p5jdhl7we59jq8fjv7qzxe89zyjt",
+    "fusd": "0.1",
+    "maxQor": "1.484637",
+    "erc20Balance": {
+      "before": "0",
+      "after": "0.1"
+    },
+    "how": "npx tsx scripts/testnet/amm-proof.ts 0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124, production build under npm run web:preview, headless Chromium"
+  }
+}
