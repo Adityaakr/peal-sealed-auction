@@ -176,8 +176,8 @@ function guestSection(): HTMLElement {
         try {
           const uqor = parseUnits(amt.value.trim() || "0", 6);
           log(`Asking QoreX to send ${amt.value} QOR to your guest account…`);
-          const tx = await qorex.sendQor(state.qorex!.cosmos, g.cosmos, uqor);
-          log(`QoreX sent it (tx ${tx.slice(0, 10)}…).`);
+          const sent = await qorex.sendQor(state.qorex!.cosmos, g.cosmos, uqor);
+          log(`QoreX sent it (tx ${sent.txHash.slice(0, 10)}…, ${sent.shield === "shielded" ? "hybrid ML-DSA-87 layer confirmed by QoreX" : `QoreX shield check: ${sent.shield}`}).`);
           setTimeout(() => void refreshGuest(), 4000);
         } catch (e) {
           state.error = e instanceof Error ? e.message : String(e);
@@ -289,7 +289,7 @@ function metamaskSection(): HTMLElement {
       emit();
     }
   });
-  return section("MetaMask", h("p.small.muted", "Connects and adds the QoreChain testnet network. It cannot sign for QoreChain by itself."), b, name ? null : h("p.small.muted", { style: "margin:8px 0 0" }, "No browser wallet found."));
+  return section("MetaMask", h("p.small.muted", "Connects and adds the QoreChain testnet network. It cannot sign for QoreChain by itself; on the bid page it can sign bids through your guest account, which links it under a spending rule for that one auction."), b, name ? null : h("p.small.muted", { style: "margin:8px 0 0" }, "No browser wallet found."));
 }
 
 function draw(): void {

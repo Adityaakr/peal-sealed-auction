@@ -10,7 +10,8 @@
  * against the key the chain has registered before anything is sent.
  */
 import type { SealKeyPair } from "@qorechain/qoreseal";
-import { pqcSign, pqcVerify } from "@qorechain/sdk";
+import { pqcSign } from "@qorechain/sdk";
+import { verifyReleaseSignature } from "./audit.ts";
 import { openShare } from "qore-pq-kit/threshold";
 import { bech32 } from "@scure/base";
 import { decodeFunctionData, hexToBytes, toBytes, toHex, type Address, type Hex, type PublicClient } from "viem";
@@ -193,10 +194,10 @@ export async function releaseMessage(
   });
 }
 
-/** Sign with ML-DSA-87 and check the signature against `publicKey` before returning it. */
+/** Sign with ML-DSA-87 (SDK) and check the signature against `publicKey` with `@qorechain/pqc` before returning it. */
 export function signRelease(pqc: { secretKey: Uint8Array; publicKey: Uint8Array }, message: Hex): Hex {
   const m = toBytes(message);
   const sig = pqcSign(pqc.secretKey, m);
-  if (!pqcVerify(pqc.publicKey, m, sig)) throw new Error("local ML-DSA-87 verification of the release failed");
+  if (!verifyReleaseSignature(pqc.publicKey, m, sig)) throw new Error("local ML-DSA-87 verification of the release failed");
   return toHex(sig);
 }

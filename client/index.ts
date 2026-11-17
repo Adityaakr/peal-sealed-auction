@@ -1,4 +1,5 @@
 export * from "./abi.ts";
+export * from "./audit.ts";
 export * from "./bid.ts";
 export * from "./committee.ts";
 export * from "./constants.ts";

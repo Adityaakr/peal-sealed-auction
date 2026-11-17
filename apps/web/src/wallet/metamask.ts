@@ -12,6 +12,7 @@
  *
  * Copied from Peal Tender's apps/dashboard/src/wallet/metamask.ts (network passed in).
  */
+import { QOREX_MOCK_RDNS, QOREX_RDNS } from "@qorechain/qorex-types";
 
 interface Eip1193 {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
@@ -26,7 +27,8 @@ const found = new Map<string, Announced>();
 
 window.addEventListener("eip6963:announceProvider", (e) => {
   const d = (e as CustomEvent<Announced>).detail;
-  if (d?.info?.rdns && !d.info.rdns.startsWith("network.qore.qorex")) found.set(d.info.rdns, d);
+  // QoreX (and its test double) announce themselves too; they have their own entry in the drawer.
+  if (d?.info?.rdns && d.info.rdns !== QOREX_RDNS && d.info.rdns !== QOREX_MOCK_RDNS) found.set(d.info.rdns, d);
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
 
@@ -41,6 +43,11 @@ function pick(): Announced | undefined {
   if (mm) return mm;
   if (window.ethereum) return { info: { name: window.ethereum.isMetaMask ? "MetaMask" : "Browser wallet", rdns: "window.ethereum" }, provider: window.ethereum };
   return undefined;
+}
+
+/** The connected wallet's EIP-1193 provider (for personal_sign when it bids through a linked key). */
+export function provider(): Eip1193 | undefined {
+  return pick()?.provider;
 }
 
 export function available(): string | undefined {
