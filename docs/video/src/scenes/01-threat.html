@@ -1,0 +1,41 @@
+<!-- {"id":"threat","start":0,"dur":15.75} -->
+<style>
+  #s1-line { position: absolute; left: 160px; right: 160px; top: 380px; text-align: center; font-size: 74px; line-height: 1.22; }
+  #s1-view { left: 120px; top: 120px; width: 1680px; height: 880px; }
+  #s1-hl-k { left: 378px; top: 579px; width: 67px; height: 67px; border-radius: 34px; }
+  #s1-hl-holder { left: 495px; top: 569px; width: 180px; height: 85px; }
+  #s1-hl-lost { left: 163px; top: 719px; width: 424px; height: 36px; }
+</style>
+<div class="stage" id="s1-stage">
+  <div id="s1-line" class="display">A sealed-bid auction is only as sealed as <span id="s1-key">its key.</span></div>
+  <div class="chap" id="s1-chap"><b>01</b> &nbsp;The problem</div>
+  <div class="view" id="s1-view">
+    <div class="cam" id="s1-cam" style="width:1440px">
+      <img src="assets/shots/problem.png" width="1440" height="935" alt="The landing page's problem section: one auction key against a split key per bid" />
+      <div class="hl" id="s1-hl-k"></div>
+      <div class="hl red" id="s1-hl-holder"></div>
+      <div class="hl red" id="s1-hl-lost"></div>
+    </div>
+  </div>
+</div>
+<script>
+  const BOX = { x: 0, y: 0, w: 1680, h: 870 };
+  // "A sealed-bid auction is only as sealed as its key."
+  tl.fromTo("#s1-key", { color: "#ece8df" }, { color: "#d4a95b", duration: 0.5, ease: "power2.out" }, 2.9);
+  tl.fromTo("#s1-line", { scale: 1 }, { scale: 1.03, duration: 3.6, ease: "none" }, 0);
+  out("#s1-line", 3.85, 0.3);
+  // "In the usual recipe, every bid is encrypted to one auction key."
+  camSet("#s1-cam", [140, 120, 1160, 660], BOX);
+  inn("#s1-chap", 4.1);
+  inn("#s1-view", 4.15, { d: 0.5 });
+  camTo("#s1-cam", [120, 435, 560, 340], BOX, 4.9, 1.6);
+  hlIn("#s1-hl-k", 7.3);
+  // "Whoever holds that key can read every bid before the close"
+  hlOut("#s1-hl-k", 8.6);
+  hlIn("#s1-hl-holder", 8.9);
+  camTo("#s1-cam", [150, 445, 550, 320], BOX, 9.6, 3.6);
+  // "Lose it, and nothing opens."
+  hlOut("#s1-hl-holder", 13.3);
+  hlIn("#s1-hl-lost", 13.6);
+  endScene("#s1-stage");
+</script>

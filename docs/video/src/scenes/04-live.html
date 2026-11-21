@@ -1,0 +1,94 @@
+<!-- {"id":"live","start":55.25,"dur":38.65} -->
+<style>
+  .s4-v { left: 120px; top: 120px; width: 1680px; height: 870px; }
+  #s4-hl-create { left: 15px; top: 235px; width: 222px; height: 53px; }
+  #s4-hl-bal { left: 13px; top: 197px; width: 230px; height: 30px; }
+  #s4-hl-how { left: 236px; top: 790px; width: 940px; height: 50px; }
+  #s4-hl-checks { left: 236px; top: 898px; width: 970px; height: 116px; }
+  #s4-hl-seal { left: 238px; top: 1212px; width: 248px; height: 56px; }
+  #s4-hl-key { left: 8px; top: 143px; width: 400px; height: 54px; }
+  #s4-hl-win { left: 8px; top: 190px; width: 400px; height: 36px; }
+  #s4-hl-txs { left: 8px; top: 216px; width: 400px; height: 176px; }
+  #s4-hl-env { left: 236px; top: 1458px; width: 706px; height: 84px; }
+</style>
+<div class="stage" id="s4-stage">
+  <div class="chap" id="s4-chap"><b>04</b> &nbsp;A visitor's bid, live on the testnet</div>
+  <div class="view s4-v" id="s4-v1">
+    <div class="cam" id="s4-c1" style="width:420px">
+      <img src="assets/shots/drawer-create.png" width="420" height="900" alt="The wallet drawer: create a guest account" />
+      <div class="hl" id="s4-hl-create"></div>
+    </div>
+  </div>
+  <div class="view s4-v" id="s4-v2">
+    <div class="cam" id="s4-c2" style="width:420px">
+      <img src="assets/shots/drawer-funded.png" width="420" height="900" alt="The guest account, funded with 1.2 test QOR" />
+      <div class="hl" id="s4-hl-bal"></div>
+    </div>
+  </div>
+  <div class="view s4-v" id="s4-v3">
+    <div class="cam" id="s4-c3" style="width:1440px">
+      <img src="assets/shots/bid-sealed.png" width="1440" height="2003" alt="The bid page: committee checked, bid sealed and committed" />
+      <div class="hl" id="s4-hl-how"></div>
+      <div class="hl green" id="s4-hl-checks"></div>
+      <div class="hl" id="s4-hl-seal"></div>
+    </div>
+  </div>
+  <div class="view s4-v" id="s4-v4">
+    <div class="cam" id="s4-c4" style="width:420px">
+      <img src="assets/shots/drawer-log.png" width="420" height="900" alt="The drawer's log: key registered, one scoped window, faucet claim, approve, commit" />
+      <div class="hl" id="s4-hl-key"></div>
+      <div class="hl" id="s4-hl-win"></div>
+      <div class="hl" id="s4-hl-txs"></div>
+    </div>
+  </div>
+  <div class="view s4-v" id="s4-v5">
+    <div class="cam" id="s4-c5" style="width:1440px">
+      <img src="assets/shots/bid-sealed.png" width="1440" height="2003" alt="The sealed bid: ciphertext, hashes and three 1,752-byte envelopes" />
+      <div class="hl" id="s4-hl-env"></div>
+    </div>
+  </div>
+  <div class="note" id="s4-note">The production build on <span class="mono">qorechain-diana</span>, 21 November 2026: a fresh guest's real bid in auction <span class="mono">0x53537D…5646</span>.</div>
+</div>
+<script>
+  const BOX = { x: 0, y: 0, w: 1680, h: 870 };
+  inn("#s4-chap", 0.0);
+  inn("#s4-note", 0.8);
+  // "A visitor creates a guest account in the browser"
+  camSet("#s4-c1", [0, 0, 420, 480], BOX);
+  inn("#s4-v1", 0.05, { d: 0.45 });
+  hlIn("#s4-hl-create", 4.3);
+  out("#s4-v1", 6.3, 0.3);
+  // "and funds it with test QOR."
+  camSet("#s4-c2", [0, 100, 420, 380], BOX);
+  inn("#s4-v2", 6.5, { d: 0.45 });
+  hlIn("#s4-hl-bal", 7.3);
+  out("#s4-v2", 8.0, 0.3);
+  // "On the bid page, it checks every committee member ... Three green checks."
+  camSet("#s4-c3", [215, 720, 1010, 330], BOX);
+  inn("#s4-v3", 8.2, { d: 0.45 });
+  camTo("#s4-c3", [225, 760, 990, 280], BOX, 9.0, 9.5);
+  hlIn("#s4-hl-how", 11.9);
+  hlOut("#s4-hl-how", 18.3);
+  hlIn("#s4-hl-checks", 18.8);
+  // "Then: seal in this browser, and commit."
+  hlOut("#s4-hl-checks", 19.9);
+  camTo("#s4-c3", [215, 1050, 1010, 245], BOX, 20.0, 1.0);
+  hlIn("#s4-hl-seal", 21.0);
+  out("#s4-v3", 22.5, 0.3);
+  // "The page registers the guest's post-quantum key, opens one EVM window scoped to the three contracts"
+  camSet("#s4-c4", [0, 100, 420, 320], BOX);
+  inn("#s4-v4", 22.7, { d: 0.45 });
+  hlIn("#s4-hl-key", 23.6);
+  hlOut("#s4-hl-key", 25.6);
+  hlIn("#s4-hl-win", 25.9);
+  // "and sends the faucet claim, the approval, and the sealed bid."
+  hlOut("#s4-hl-win", 29.6);
+  hlIn("#s4-hl-txs", 29.9);
+  out("#s4-v4", 33.1, 0.3);
+  // "Three envelopes, seventeen hundred and fifty-two bytes each. Nobody can read it."
+  camSet("#s4-c5", [215, 1320, 1010, 300], BOX);
+  inn("#s4-v5", 33.3, { d: 0.45 });
+  hlIn("#s4-hl-env", 34.0);
+  camTo("#s4-c5", [225, 1330, 960, 280], BOX, 34.6, 3.6);
+  endScene("#s4-stage");
+</script>

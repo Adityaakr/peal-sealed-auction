@@ -1,0 +1,23 @@
+<!-- {"id":"outro","start":171.5,"dur":7.5} -->
+<style>
+  #s9-lock { position: absolute; left: 560px; top: 300px; width: 800px; height: 117px; }
+  #s9-tag { position: absolute; left: 0; right: 0; top: 480px; text-align: center; font-size: 46px; color: var(--paper); }
+  #s9-repo { position: absolute; left: 0; right: 0; top: 620px; text-align: center; font-size: 28px; color: var(--paper-2); }
+  #s9-family { position: absolute; left: 0; right: 0; top: 760px; text-align: center; font-size: 28px; color: var(--muted); }
+  #s9-family img { height: 30px; vertical-align: -8px; margin: 0 8px 0 22px; }
+</style>
+<div class="stage" id="s9-stage">
+  <img id="s9-lock" src="assets/brand/lockup-dark.svg" alt="Peal Sealed Auction" />
+  <div id="s9-tag" class="display" data-split>Sealed until <span class="brass">two of three keys</span> meet.</div>
+  <div id="s9-repo" class="mono">github.com/Adityaakr/peal-sealed-auction</div>
+  <div id="s9-family">The Peal family:<img src="assets/brand/tender-mark-dark.svg" alt="" />Peal Tender<img src="assets/brand/mark-dark.svg" alt="" />Peal Sealed Auction<img src="assets/brand/bidder-mark-dark.svg" alt="" />Peal Bidder</div>
+</div>
+<script>
+  // "Peal Sealed Auction."
+  tl.fromTo("#s9-lock", { opacity: 0, filter: "blur(10px)", scale: 0.97 }, { opacity: 1, filter: "blur(0px)", scale: 1, duration: 0.7, ease: "expo.out" }, 0.05);
+  // "Sealed, until two of three keys meet."
+  words("#s9-tag", 1.9, 0.14);
+  inn("#s9-repo", 3.1);
+  inn("#s9-family", 3.7);
+  out("#s9-stage", D - 0.8, 0.7);
+</script>

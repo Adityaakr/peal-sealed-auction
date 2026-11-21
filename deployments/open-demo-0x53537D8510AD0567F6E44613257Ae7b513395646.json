@@ -1,0 +1,60 @@
+{
+  "network": "qorechain-diana",
+  "purpose": "The visitors' open demo auction through judging: anyone may bid with PEAL-T from the demo faucet, using a guest account in the browser",
+  "auction": "0x53537D8510AD0567F6E44613257Ae7b513395646",
+  "issuer": "0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40",
+  "terms": "50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD in 8 steps, bond 1 PEAL-T, at most 32 bids, committee 2 of 3",
+  "openedAt": "2026-11-21",
+  "biddingUntil": "2026-12-17T00:00:00Z",
+  "releasesUntil": "2026-12-18T00:00:00Z",
+  "replaces": "0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4 (bidding until 2026-11-23T15:27:59Z)",
+  "command": "npm run testnet -- create --buyback --demo --until 2026-12-17T00:00:00Z --release-seconds 86400 --max-bids 32",
+  "txs": {
+    "openWindow": "00389EF0D1464F267B54F77ED0DDA60D3F0D3755EE76631D6AB45E8B702721FE",
+    "approveSupply": "0xb3d7f92c92a4b1138280268f726edf59583bc6f36f3033469e0e25a67e87cfe5",
+    "createAuction": "0x8fdae43bbe2f1d710db8db8fc61cf8a42afc4d1a95276ca2ca80c8cbd5d86870"
+  },
+  "gas": {
+    "approveSupply": "46342",
+    "createAuction": "685758"
+  },
+  "freshGuestProof": {
+    "what": "A first-time visitor's path through the production build (vercel.json headers and rewrites, via npm run web:preview) in headless Chromium, desktop and phone: a guest account created in the page, funded, then straight to the bid page with no PEAL-T. The page registered the ML-DSA-87 key, opened one window for 3 transactions scoped to 3 contracts, and sent the faucet claim, approve and commitBid of a bid sealed in the browser. The results page shows it as the guest's, still sealed",
+    "guest": {
+      "evm": "0x882840a4F542b1e0ae0671F8FB1AAdEa9f8B815a",
+      "native": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf"
+    },
+    "funding": {
+      "note": "test funding only: 1.2 QOR from the deployer stands in for the dashboard faucet, which needs a signed-in visitor",
+      "tx": "849C253AF79A2B1A5CE8CD18A67E106D04977872895F04D5942F3592F9B0ABC5"
+    },
+    "txs": {
+      "registerPqcKey": "FCD12BA98F3AA616232B4DCA64C03B2F718A3F5E0350AD1EBD7B7A4C0E7C272A",
+      "openWindow": "F479A084EF4BF1C552948102255CA43AC2F246294D127EDED372DAC27E660037",
+      "faucetClaim": "0xfe1e90ca3fb8cb370d3673eab74fa527ddf924df4eeb95e4929b1e66893498af",
+      "approve": "0x926f39530d1175c6c9a86e77a128737a23fb9e07e16f237f8152baf862caa11a",
+      "commitBid": "0x26c3c570ccff6a28b12d93ade1c28ae8079b208fd47306b35a1328d4057d7408"
+    },
+    "bid": "5 fUSD at most 1.50 PEAL-T each: escrow 7.5 + bond 1 PEAL-T",
+    "qorSpent": "0.364 (1.2 → 0.836)"
+  },
+  "videoCaptureBid": {
+    "what": "The second fresh guest, made in the page by docs/video/src/capture.mjs for the submission video's screens; same path as freshGuestProof",
+    "guest": {
+      "evm": "0xF0FEf2AaE6ee15B6Ad309D32F3597c868d6C3367",
+      "native": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr"
+    },
+    "funding": {
+      "note": "test funding only: 1.2 QOR from the deployer",
+      "tx": "73DC219B744E96634C66D6065791A93AF270FBC41B6DDB229304AB7A4E99464B"
+    },
+    "txs": {
+      "registerPqcKey": "7F20E3D5B637C345A157E85CEB85E4979354F73223B875769D454103C357C28E",
+      "openWindow": "815E5B0AF83A4451D564715E8902A8136F7ADA7F3EA4D46F53AC20BDDE48F60E",
+      "faucetClaim": "0x100a4a1d3fdbe9f56b05089991478ccd4eed453c34b55d4fc8760607c271ea91",
+      "approve": "0xfcbc35316b9a02ea7633a662ba3305e2269d09b194fb289251d6726e4d03fda1",
+      "commitBid": "0xd1829394ede92bf0767438cdc39c24ce279dae3971803d79ff46c49070ed386d"
+    },
+    "bid": "8 fUSD at most 1.25 PEAL-T each: escrow 10 + bond 1 PEAL-T"
+  }
+}

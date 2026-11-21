@@ -48,6 +48,9 @@ export async function waitUntil(t: bigint, what: string): Promise<void> {
   }
 }
 
+/** Bids opened per openBids call: about 120k gas a bid, inside a 3M-gas window transaction. */
+const OPEN_CHUNK = 16;
+
 type Evm = (n: Named, label: string, to: Address, abi: Abi, functionName: string, args?: unknown[]) => Promise<unknown>;
 
 /**
@@ -107,6 +110,8 @@ export async function create(argv: string[]): Promise<void> {
     args: argv,
     options: {
       "commit-seconds": { type: "string", default: "900" },
+      // Bidding ends at this UTC time instead (ISO 8601), e.g. 2026-12-17T00:00:00Z.
+      until: { type: "string" },
       "release-seconds": { type: "string", default: "900" },
       ticks: { type: "string", default: "8" },
       buyback: { type: "boolean", default: false },
@@ -121,7 +126,14 @@ export async function create(argv: string[]): Promise<void> {
     console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
     return r;
   };
-  const { auction } = await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
+  let commit = BigInt(values["commit-seconds"]!);
+  if (values.until) {
+    const end = Date.parse(values.until);
+    if (Number.isNaN(end)) throw new Error(`--until: not a date: ${values.until}`);
+    commit = BigInt(Math.floor(end / 1000)) - (await publicClient().getBlock()).timestamp;
+    if (commit <= 0n) throw new Error(`--until: ${values.until} has passed`);
+  }
+  const { auction } = await createAuction(d, deployer, commit, BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
     buyback: values.buyback,
     maxBids: values["max-bids"] ? Number(values["max-bids"]) : undefined,
   });
@@ -155,8 +167,11 @@ export async function settle(auction: Address): Promise<void> {
   await waitUntil(cfg.endTime, "the end of bidding");
   const count = Number(await read<number>("bidCount"));
   console.log(`bidding closed with ${count} bids`);
-  // closeCommit, openBids twice, finalize; the window must outlive the release window.
-  await scopedWindow(deployer, [auction], 4, 3_000_000n, 7200);
+  // openBids costs about 120k a bid, so open in chunks that fit one 3M-gas window transaction.
+  const chunks: bigint[][] = [];
+  for (let i = 0; i < count; i += OPEN_CHUNK) chunks.push(Array.from({ length: Math.min(OPEN_CHUNK, count - i) }, (_, k) => BigInt(i + k)));
+  // closeCommit, openBids twice per chunk, finalize; the window must outlive the release window.
+  await scopedWindow(deployer, [auction], 2 + 2 * Math.max(chunks.length, 1), 3_000_000n, 7200);
   if (Number(await read<number>("state")) === 2) await send(deployer, "closeCommit", "closeCommit");
   if (count === 0) {
     console.log("no bids: the auction failed; the issuer can claimUnsold");
@@ -174,10 +189,10 @@ export async function settle(auction: Address): Promise<void> {
     });
     console.log(`${m.name}: ${JSON.stringify(r)}`);
   }
-  const ids = Array.from({ length: count }, (_, i) => BigInt(i));
-  await send(deployer, "openBids", "openBids", [ids]);
+  const ids = chunks.flat();
+  for (const c of chunks) await send(deployer, `openBids ${c[0]}..${c[c.length - 1]}`, "openBids", [c]);
   await waitUntil(cfg.releaseDeadline, "the release deadline (member 3 is offline)");
-  if (Number(await read<number>("decidedCount")) < count) await send(deployer, "openBids (pending)", "openBids", [ids]);
+  if (Number(await read<number>("decidedCount")) < count) for (const c of chunks) await send(deployer, `openBids (pending) ${c[0]}..${c[c.length - 1]}`, "openBids", [c]);
   await send(deployer, "finalize", "finalize");
   const state = Number(await read<number>("state"));
   const price = await read<bigint>("clearingPrice");

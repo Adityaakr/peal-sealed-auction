@@ -4,6 +4,14 @@
 
 QoreChain "Build Before Q-Day" Developer Fest · category **Encrypted Apps** · live on the QoreChain testnet (`qorechain-diana`) · Apache-2.0
 
+| | |
+|---|---|
+| **Live site** | <https://peal-sealed-auction.vercel.app> (testnet; the app is at `/auctions.html`) |
+| **Open demo auction** | `0x53537D8510AD0567F6E44613257Ae7b513395646` (`qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj`), open for sealed bids until **17 December 2026, 00:00 UTC** |
+| **Video** (up to 3 min) | linked on the [project page](https://build.qorechain.io/p/peal-sealed-auction); its source is in [`docs/video/`](docs/video/) |
+| **Project page** | <https://build.qorechain.io/p/peal-sealed-auction> |
+| **Testnet addresses** | [Live on the testnet](#live-on-the-testnet), with their `qor1` forms |
+
 ---
 
 ## In one minute
@@ -23,9 +31,23 @@ As a result:
 
 **It runs on the testnet.** One whole auction ran there end to end with the real precompiles: two sealed bids, a forged release refused by `pqcVerify`, two releases with the third member offline, on-chain decryption, and one clearing price ([run below](#testnet-demo-run-2026-11-16)).
 
-## Try it in your browser
+## Try it in 5 minutes
 
-The web app opens on a landing page in this product's own identity, the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)). It shows the open demo auction's sealed slots with their real ciphertexts. Six diagrams answer a visitor's questions in order: the problem, how a bid is sealed, when a bid can be read, why no one opens it early, the live reveal of the testnet run, and the category's requirements with their evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`: 50 fUSD for PEAL-T, bidding until 23 November 2026 15:28 UTC):
+You need a browser and about 1 test QOR. Nothing to install.
+
+1. Open <https://peal-sealed-auction.vercel.app> and press **Try it with a guest account**. *Create a guest account* makes a testnet account in your browser.
+2. Fund it with about 1 QOR: the drawer's **Dashboard faucet** button (sign in with your QoreChain account), or one transfer approved in QoreX. Press **Check balance**.
+3. Press **Place a sealed bid**. On the bid page, **Check every member's keys** shows three green checks: each member's ML-DSA-87 key from the chain, its ML-KEM-1024 key from the registry, and its signed card.
+4. Enter a quantity and a price limit, then **Seal in this browser and commit**. The page claims 1,000 PEAL-T from the demo faucet if you have none, registers your ML-DSA-87 key, opens one EVM window scoped to the three contracts it calls, and commits. It shows your ciphertext and the three 1,752-byte envelopes.
+5. **Watch the results**: your bid is listed as yours, still sealed. Nobody, including the committee, can read it before bidding closes on 17 December.
+
+To see what happens after the close, open the [settled testnet run](#testnet-demo-run-2026-11-16) on the results page: add `?auction=0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` to `/results.html`, and press **Check it in this browser** to verify both releases and reopen both bids yourself (it reads the chain's logs for about half a minute).
+
+A first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).
+
+## What the site does
+
+The web app opens on a landing page in this product's own identity, the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)). It shows the open demo auction's sealed slots with their real ciphertexts. Six diagrams answer a visitor's questions in order: the problem, how a bid is sealed, when a bid can be read, why no one opens it early, the live reveal of the testnet run, and the category's requirements with their evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x53537D8510AD0567F6E44613257Ae7b513395646`: 50 fUSD for PEAL-T, bidding until 17 December 2026 00:00 UTC, so through judging and the 16 December demo show):
 
 1. **Make a guest account.** *Connect* opens a wallet drawer. A guest account is a fresh testnet key pair made in the browser (secp256k1 and ML-DSA-87, derived by `@qorechain/sdk` from a new 24-word phrase). It lives only in that browser's storage, and it can be backed up and forgotten.
 2. **Fund it** with about 1 QOR from the [QoreChain dashboard faucet](https://dashboard.qorechain.io/faucet), or in one transfer approved in QoreX.
@@ -33,11 +55,11 @@ The web app opens on a landing page in this product's own identity, the sealed e
 4. **In a fUSD sale, buy fUSD if you are short.** The bid page quotes the testnet AMM and buys with one hybrid transaction: swap QOR for fUSD, convert it to the ERC-20 the auction pulls (`client/amm.ts`).
 5. **Seal and commit a bid.** The bid page checks the committee's keys, seals the bid in the browser and sends `approve` and `commitBid` inside one EVM window scoped to the token and the auction. The guest registers its ML-DSA-87 key first, as QoreChain requires. If the account is short of PEAL-T, the faucet claim joins the same window.
 
-After the close the demo committee releases (`npm run testnet -- settle 0x9A98…c7B4`), and the results page shows every bid opened, the clearing price, and a *Claim my payout* button.
+After the close the demo committee releases (`npm run testnet -- settle 0x53537D…5646`), and the results page shows every bid opened, the clearing price, and a *Claim my payout* button.
 
 **Check it yourself.** The results page's *Check it in this browser* button does not trust the contract's verdicts. It reads each member's release from its transaction and rebuilds the signed message itself. It then verifies the ML-DSA-87 signature with `@qorechain/pqc` against the key the chain registered (`pqcKeyStatus`), rebuilds every bid key from the stored shares and decrypts each bid. The same check runs from a terminal: `npm run testnet -- audit 0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` verifies both releases of the testnet run and reopens both bids (`client/audit.ts`).
 
-**Proven on the testnet** through the production build, with the same headers and rewrites as Vercel (`scripts/testnet/guest-proof.ts`): a fresh guest registered its ML-DSA-87 key, claimed PEAL-T, and committed a bid sealed in the page, for 0.51 QOR in all. Every hash is in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
+**Proven on the testnet** through the production build, with the same headers and rewrites as Vercel: in the first demo auction (`scripts/testnet/guest-proof.ts`, `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`), and again in the current one from a guest created in the page (above).
 
 **The three ways in**, and what each can really do on QoreChain today:
 
@@ -86,16 +108,25 @@ Every testnet hash is listed in [`deployments/`](deployments/). `npm run evidenc
 
 `qorechain-diana`, EVM chain id 9800, RPC `https://evm-testnet.qore.host`.
 
-| Contract | Address |
-|---|---|
-| `CommitteeRegistry` | `0x95ea32ba3077070a562a9f7ad2e969f231689bae` |
-| `SealedAuction` (implementation) | `0xd4a1196aebe17121db3d6c1d56b326575faf62b3` |
-| `SealedAuctionFactory` | `0x1160ab95b570a65bbadb488c76e2f8515f3d6562` |
-| PEAL-T (demo token) | `0x7edc65adc95de061887ecd6fc8629f2a99fffe9e` |
-| PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` |
-| fUSD (the fest's token) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` |
+| Contract | Address | Native (`qor1`) form |
+|---|---|---|
+| `CommitteeRegistry` | `0x95ea32ba3077070a562a9f7ad2e969f231689bae` | `qor1jh4r9w3swurs5432naad96tf7gck3xawg5j7fu` |
+| `SealedAuction` (implementation) | `0xd4a1196aebe17121db3d6c1d56b326575faf62b3` | `qor16js3j6htu9cjrkeadsw4dvex2a067c4nke5qvn` |
+| `SealedAuctionFactory` | `0x1160ab95b570a65bbadb488c76e2f8515f3d6562` | `qor1z9s2h9d4wzn9hwkmfzx8dchc290n6etzdq0pk7` |
+| Open demo auction (until 17 Dec 2026) | `0x53537D8510AD0567F6E44613257Ae7b513395646` | `qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj` |
+| Testnet demo run (settled) | `0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` | `qor1nja9e74jcx9f89fkeupfqmw4gwu9asfyu4xp8a` |
+| PEAL-T (demo token) | `0x7edc65adc95de061887ecd6fc8629f2a99fffe9e` | `qor10mwxttwfthsxrzr7e4husc5l92vlll57lceqlk` |
+| PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` | `qor1umpfg0l506ggez6z4apjn762h5gy2tjhgx37gg` |
+| fUSD (the fest's token) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` | |
 
-Open demo auction for visitors: `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4` (a buyback: 50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD, bond 1 PEAL-T, at most 20 bids), opened with `npm run testnet -- create --buyback --demo …`; transactions in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
+| Account | Address | Native (`qor1`) form |
+|---|---|---|
+| Deployer and demo issuer | `0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40` | `qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh` |
+| Committee member 1 | `0x64eE2394BE93B0e840b06fd497df90E5295786Ee` | `qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx` |
+| Committee member 2 | `0x75588D0B6117D3C05694B656228508D461A996c4` | `qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v` |
+| Committee member 3 | `0x0E7db45Da1fD3d974218E59CF8C4387789fF1714` | `qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx` |
+
+Open demo auction for visitors: `0x53537D8510AD0567F6E44613257Ae7b513395646` (a buyback: 50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD, bond 1 PEAL-T, at most 32 bids, bidding until 17 December 2026 00:00 UTC, releases until 18 December), opened with `npm run testnet -- create --buyback --demo --until 2026-12-17T00:00:00Z --release-seconds 86400 --max-bids 32`; transactions in `deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json`. The first demo auction, `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`, took bids until 23 November.
 
 Committee set `0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5`, 2 of 3. In the demo the owner holds all three member keys as separate accounts; this is disclosed and for the demo only.
 
@@ -128,7 +159,7 @@ Requires [Foundry](https://getfoundry.sh), Node.js 22 and, for the browser run, 
 git clone --recurse-submodules https://github.com/Adityaakr/peal-sealed-auction
 cd peal-sealed-auction
 npm ci
-forge test            # 105 Solidity tests: unit, fuzz, invariants
+forge test            # 111 Solidity tests: unit, fuzz, invariants
 npm run test:ts       # client tests with real QoreSeal and ML-DSA-87
 npm run e2e:local     # a whole auction on anvil
 npm run web:smoke     # the landing page, a guest account's bid, then a whole auction, in headless Chromium
@@ -179,10 +210,11 @@ npm run web                                   # then http://localhost:5173/?net=
 
 ## Hosting on Vercel
 
-The repository is ready to import in Vercel as it is: `vercel.json` holds everything, and no environment variables are needed. Vercel's free tier is enough.
+The repository is ready to import in Vercel as it is: `vercel.json` holds everything, and no environment variables or secrets are needed. Vercel's free tier is enough. A clean clone builds with exactly these commands (checked on 21 November 2026).
 
-1. In Vercel, *Add New… → Project*, import `Adityaakr/peal-sealed-auction`, keep the defaults, and deploy.
-2. That's it. The site opens on the landing page, on the testnet.
+1. In Vercel, *Add New… → Project*, and import `Adityaakr/peal-sealed-auction` from GitHub.
+2. Keep the project name `peal-sealed-auction`, so the site is <https://peal-sealed-auction.vercel.app>. Leave *Framework Preset* on *Other*, *Root Directory* on `./`, and the build and output settings untouched: `vercel.json` sets them. No environment variables.
+3. *Deploy*. The site opens on the landing page, on the testnet. Every push to `main` redeploys it.
 
 What `vercel.json` does:
 - **Build:** `npm ci` (with the git-over-https rewrite the toolkit dependency needs), then `npm run web:build`; it serves `apps/web/dist`.
@@ -191,7 +223,7 @@ What `vercel.json` does:
 
 To check a build the way Vercel serves it, with the same headers and rewrites: `npm run web:build && npm run web:preview`, then <http://localhost:4173/?net=testnet>.
 
-To point the hosted site at a new demo auction: `npm run testnet -- create --buyback --demo --commit-seconds 604800 --release-seconds 86400 --max-bids 20`, commit the updated `apps/web/public/config.testnet.json`, and Vercel redeploys.
+To point the hosted site at a new demo auction: `npm run testnet -- create --buyback --demo --until <UTC time> --release-seconds 86400 --max-bids 32`, commit the updated `apps/web/public/config.testnet.json`, and Vercel redeploys.
 
 ## A sealed bond issue only post-quantum accounts can hold
 
@@ -229,6 +261,16 @@ Guard `0x13c978322103fc9b78f622999053cb458d893303`, PEAL-B `0xa796bc03cac5e3bb5c
 
 What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MODEL.md).
 
+## Honest limits
+
+- **The demo committee is one person.** The owner holds all three member keys, as three separate accounts. The protocol is built for three independent members; the demo shows the mechanism, not the independence.
+- **Releases are run by the owner after the close.** Members release from their own committee page or with `npm run committee`, not from the hosted site's guest account. The open demo auction is settled with `npm run testnet -- settle 0x53537D…5646` after 17 December.
+- **A visitor needs about 1 test QOR first.** The dashboard faucet asks the visitor to sign in, and QoreX can fund a guest in one transfer. The site has no faucet of its own for QOR, only for PEAL-T.
+- **QoreX cannot send EVM transactions for pages yet**, so it funds the guest account rather than bidding itself; MetaMask bids only through the guest's spending rule.
+- **Bidder privacy ends at the clearing.** Bids are sealed until the close; after the opening every bid is public on chain, as in any sealed-bid auction that settles on chain.
+- **QoreSeal is version 0.1.0**, published as a draft pending an external review.
+- **The open demo takes at most 32 bids**, so settlement stays inside one window per chunk of bids; the landing page draws the first 20 slots.
+
 ## Repository
 
 | Path | What |
@@ -258,6 +300,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `client/amm.ts` | Buying the quote token on the native AMM: pool quote, swap with a floor, convert to the ERC-20, one transaction |
 | `client/audit.ts` | The independent check: release signatures verified with `@qorechain/pqc`, bids reopened from stored shares |
 | `docs/DEMO.md` | The 3-minute demo, shot by shot |
+| `docs/video/` | The submission video's source (HyperFrames), its script and how to render it |
 | `THREAT_MODEL.md`, `AI_USAGE.md` | Trust model; how AI agents built this and what the human decided |
 
 Built with `create-qorechain-dapp` (scaffold), [`qore-pq-kit`](https://github.com/Adityaakr/qore-pq-kit) `v0.1.0`, `@qorechain/sdk` and `@qorechain/evm` 0.14.0, `@qorechain/qoreseal` 0.1.0, `@qorechain/qoresign` 0.2.0, `@qorechain/pqc` 0.2.3, `@qorechain/qorex-types` and `@qorechain/qorex-wallet-mock` 0.1.0, `@qorechain/qore-cli` and `@qorechain/mcp` 0.1.1, `@qorechain/qorescan` 0.1.0, `@qorechain/wallet-adapter` 0.6.0, QoreChain Asset Kit `v0.1.0` (the hybrid holder guard), OpenZeppelin Contracts 5.4.0. Which QoreChain kits and network features this project uses, why, and the evidence for each: [`docs/kits.md`](docs/kits.md).
