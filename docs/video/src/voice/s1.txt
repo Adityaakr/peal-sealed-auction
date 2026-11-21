@@ -1,0 +1,1 @@
+A sealed-bid auction is only as sealed as its key. In the usual recipe, every bid is encrypted to one auction key. Whoever holds that key can read every bid before the close, and trade on what they see. Lose it, and nothing opens.

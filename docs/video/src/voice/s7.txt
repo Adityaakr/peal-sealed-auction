@@ -1,0 +1,1 @@
+That covers the Encrypted Apps brief: M L K E M ten twenty-four encryption, registered recipient keys, M L D S A key binding, and encryption and decryption on the client. Each one has a transaction or a test behind it, with a hundred and eleven Solidity tests in the repository.

@@ -12,5 +12,5 @@
   "faucet": "0xe6c2943ff47e908c8b42af4329fb4abd10452e57",
   "committeeSetId": "0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5",
   "committeeCards": "./committee-cards.testnet.json",
-  "demoAuction": "0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4"
+  "demoAuction": "0x53537D8510AD0567F6E44613257Ae7b513395646"
 }

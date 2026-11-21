@@ -1,0 +1,58 @@
+/* Peal Sealed Auction identity (apps/web/DESIGN.md: the sealed envelope), set for a 1920x1080 frame. */
+#root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0e1016;
+  color: #ece8df;
+  font-family: "Geist", sans-serif;
+  --night: #0e1016;
+  --vault: #151821;
+  --rule: #242833;
+  --line: #3b404d;
+  --paper: #ece8df;
+  --paper-2: #b8b4aa;
+  --muted: #858891;
+  --brass: #d4a95b;
+  --brass-dim: rgba(212, 169, 91, 0.3);
+  --brass-weak: rgba(212, 169, 91, 0.08);
+  --ok: #7fd19b;
+  --bad: #f2867a;
+}
+#root * { box-sizing: border-box; }
+.stage { position: absolute; inset: 0; }
+.display { font-family: "Martian Mono", monospace; font-stretch: 87.5%; font-weight: 400; letter-spacing: -0.02em; }
+.mono { font-family: "Geist Mono", monospace; font-variant-numeric: tabular-nums; }
+.brass { color: var(--brass); }
+.chap {
+  position: absolute; left: 120px; top: 58px;
+  font-family: "Geist Mono", monospace; font-size: 28px; letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.chap b { color: var(--brass); font-weight: 500; }
+.brandmark { position: absolute; right: 120px; top: 50px; height: 40px; }
+.title { font-family: "Martian Mono", monospace; font-stretch: 87.5%; font-size: 64px; line-height: 1.18; letter-spacing: -0.02em; color: var(--paper); }
+.lead { font-size: 30px; line-height: 1.45; color: var(--paper-2); }
+.note { position: absolute; left: 120px; right: 120px; top: 1004px; font-size: 28px; color: var(--muted); }
+.note .mono { color: var(--paper-2); }
+.w { display: inline-block; }
+/* A screen held in a clipping viewport; the camera moves .cam inside it. */
+.view { position: absolute; overflow: hidden; border-radius: 10px; }
+.cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cam img { display: block; }
+/* Focus frames sit in image coordinates inside .cam and move with it. */
+.hl {
+  position: absolute; border: 2px solid var(--brass); border-radius: 6px;
+  box-shadow: 0 0 0 4000px rgba(14, 16, 22, 0.6);
+  opacity: 0;
+}
+.hl.red { border-color: var(--bad); }
+.hl.green { border-color: var(--ok); }
+.hl.plain { box-shadow: none; }
+.tag {
+  display: inline-block; font-family: "Geist Mono", monospace; font-size: 23px;
+  letter-spacing: 0.04em; padding: 4px 12px; border-radius: 4px; border: 1.5px solid currentColor;
+}
+.tag.ok { color: var(--ok); }
+.tag.no { color: var(--bad); }
+.tag.seal { color: var(--brass); background: var(--brass-weak); }

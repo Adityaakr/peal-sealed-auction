@@ -48,6 +48,9 @@ export async function waitUntil(t: bigint, what: string): Promise<void> {
   }
 }
 
+/** Bids opened per openBids call: about 120k gas a bid, inside a 3M-gas window transaction. */
+const OPEN_CHUNK = 16;
+
 type Evm = (n: Named, label: string, to: Address, abi: Abi, functionName: string, args?: unknown[]) => Promise<unknown>;
 
 /**
@@ -62,7 +65,7 @@ async function createAuction(
   release: bigint,
   evm: Evm,
   numTicks = 8,
-  opts: { buyback?: boolean; maxBids?: number } = {},
+  opts: { buyback?: boolean; maxBids?: number; endTime?: bigint } = {},
 ): Promise<{ auction: Address; cfg: { endTime: bigint; releaseDeadline: bigint } }> {
   const client = publicClient();
   const now = (await client.getBlock()).timestamp;
@@ -80,8 +83,8 @@ async function createAuction(
     tickSize: buyback ? parseUnits("0.25", 18) : 500_000n,
     numTicks,
     startTime: now,
-    endTime: now + commit,
-    releaseDeadline: now + commit + release,
+    endTime: opts.endTime ?? now + commit,
+    releaseDeadline: (opts.endTime ?? now + commit) + release,
     minBidQuantity: 1n,
     maxQuantityPerAddress: 0n,
     // openBids for every bid must fit one 3M-gas window transaction when settling (about 120k a bid).
@@ -107,6 +110,8 @@ export async function create(argv: string[]): Promise<void> {
     args: argv,
     options: {
       "commit-seconds": { type: "string", default: "900" },
+      // Bidding ends at this UTC time instead (ISO 8601), e.g. 2026-12-17T00:00:00Z.
+      until: { type: "string" },
       "release-seconds": { type: "string", default: "900" },
       ticks: { type: "string", default: "8" },
       buyback: { type: "boolean", default: false },
@@ -121,9 +126,19 @@ export async function create(argv: string[]): Promise<void> {
     console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
     return r;
   };
+  let endTime: bigint | undefined;
+  if (values.until) {
+    // An explicit zone only (Z or +hh:mm), so the deadline never depends on this machine's time zone.
+    if (!/(Z|[+-]\d{2}:?\d{2})$/.test(values.until)) throw new Error(`--until: give a UTC time with a zone, e.g. 2026-12-17T00:00:00Z (got ${values.until})`);
+    const end = Date.parse(values.until);
+    if (Number.isNaN(end)) throw new Error(`--until: not a date: ${values.until}`);
+    endTime = BigInt(Math.floor(end / 1000));
+    if (endTime <= (await publicClient().getBlock()).timestamp) throw new Error(`--until: ${values.until} has passed`);
+  }
   const { auction } = await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
     buyback: values.buyback,
     maxBids: values["max-bids"] ? Number(values["max-bids"]) : undefined,
+    endTime,
   });
   if (values.demo) {
     // Point the pages (and the hosted site) at it as the visitors' open demo auction.
@@ -155,8 +170,11 @@ export async function settle(auction: Address): Promise<void> {
   await waitUntil(cfg.endTime, "the end of bidding");
   const count = Number(await read<number>("bidCount"));
   console.log(`bidding closed with ${count} bids`);
-  // closeCommit, openBids twice, finalize; the window must outlive the release window.
-  await scopedWindow(deployer, [auction], 4, 3_000_000n, 7200);
+  // openBids costs about 120k a bid, so open in chunks that fit one 3M-gas window transaction.
+  const chunks: bigint[][] = [];
+  for (let i = 0; i < count; i += OPEN_CHUNK) chunks.push(Array.from({ length: Math.min(OPEN_CHUNK, count - i) }, (_, k) => BigInt(i + k)));
+  // closeCommit, openBids twice per chunk, finalize; the window must outlive the release window.
+  await scopedWindow(deployer, [auction], 2 + 2 * Math.max(chunks.length, 1), 3_000_000n, 7200);
   if (Number(await read<number>("state")) === 2) await send(deployer, "closeCommit", "closeCommit");
   if (count === 0) {
     console.log("no bids: the auction failed; the issuer can claimUnsold");
@@ -174,10 +192,10 @@ export async function settle(auction: Address): Promise<void> {
     });
     console.log(`${m.name}: ${JSON.stringify(r)}`);
   }
-  const ids = Array.from({ length: count }, (_, i) => BigInt(i));
-  await send(deployer, "openBids", "openBids", [ids]);
+  const ids = chunks.flat();
+  for (const c of chunks) await send(deployer, `openBids ${c[0]}..${c[c.length - 1]}`, "openBids", [c]);
   await waitUntil(cfg.releaseDeadline, "the release deadline (member 3 is offline)");
-  if (Number(await read<number>("decidedCount")) < count) await send(deployer, "openBids (pending)", "openBids", [ids]);
+  if (Number(await read<number>("decidedCount")) < count) for (const c of chunks) await send(deployer, `openBids (pending) ${c[0]}..${c[c.length - 1]}`, "openBids", [c]);
   await send(deployer, "finalize", "finalize");
   const state = Number(await read<number>("state"));
   const price = await read<bigint>("clearingPrice");

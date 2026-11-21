@@ -1,21 +1,21 @@
 {
   "summary": {
-    "checked": "2026-11-17T09:31:22.589Z",
+    "checked": "2026-11-21T07:42:19.637Z",
     "tool": "@qorechain/qore-cli 0.1.1 (qore tx get, qore pq status), testnet",
-    "transactions": 75,
-    "nativeVerified": 23,
-    "native": 23,
-    "keyRegistrations": 7,
-    "evmSucceeded": 45,
-    "evm": 45,
+    "transactions": 90,
+    "nativeVerified": 28,
+    "native": 28,
+    "keyRegistrations": 9,
+    "evmSucceeded": 53,
+    "evm": 53,
     "unreadable": 0,
     "messageTypes": {
-      "/cosmos.evm.vm.v1.MsgEthereumTx": 45,
-      "/cosmos.bank.v1beta1.MsgSend": 10,
+      "/cosmos.evm.vm.v1.MsgEthereumTx": 53,
+      "/cosmos.bank.v1beta1.MsgSend": 12,
+      "/qorechain.pqc.v1.MsgRegisterPQCKeyV2": 9,
       "/qorechain.abstractaccount.v1.MsgExecuteEVM": 8,
-      "/qorechain.pqc.v1.MsgRegisterPQCKeyV2": 7,
+      "/qorechain.pqc.v1.MsgOpenEVMWindow": 7,
       "/cosmos.evm.erc20.v1.MsgConvertCoin": 4,
-      "/qorechain.pqc.v1.MsgOpenEVMWindow": 4,
       "/qorechain.pqc.v1.MsgRegisterKEMKey": 3,
       "/qorechain.amm.v1.MsgSwapExactIn": 2,
       "/qorechain.abstractaccount.v1.MsgUpdateSpendingRules": 2,
@@ -31,7 +31,8 @@
       "lastWindow": {
         "live": false,
         "scopedTo": [
-          "0xd919f252cd684af3822df42f160baedf61dcdf68"
+          "0x97143b771d34ddb9130b807b135ae675a5a963ca",
+          "0x1160ab95b570a65bbadb488c76e2f8515f3d6562"
         ]
       }
     },
@@ -743,6 +744,237 @@
       "mlDsa87Verified": true,
       "signer": "qor1dv5tstpxg2p5jdhl7we59jq8fjv7qzxe89zyjt",
       "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "txs.openWindow",
+      "hash": "00389EF0D1464F267B54F77ED0DDA60D3F0D3755EE76631D6AB45E8B702721FE",
+      "height": "10479492",
+      "success": true,
+      "messages": [
+        "/qorechain.pqc.v1.MsgOpenEVMWindow"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "pqc",
+      "hybridLayer": true,
+      "mlDsa87Verified": true,
+      "signer": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh",
+      "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "txs.approveSupply",
+      "hash": "0xb3d7f92c92a4b1138280268f726edf59583bc6f36f3033469e0e25a67e87cfe5",
+      "height": "10479499",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "txs.createAuction",
+      "hash": "0x8fdae43bbe2f1d710db8db8fc61cf8a42afc4d1a95276ca2ca80c8cbd5d86870",
+      "height": "10479503",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.funding.tx",
+      "hash": "849C253AF79A2B1A5CE8CD18A67E106D04977872895F04D5942F3592F9B0ABC5",
+      "height": "10479901",
+      "success": true,
+      "messages": [
+        "/cosmos.bank.v1beta1.MsgSend"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "pqc",
+      "hybridLayer": true,
+      "mlDsa87Verified": true,
+      "signer": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh",
+      "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.txs.registerPqcKey",
+      "hash": "FCD12BA98F3AA616232B4DCA64C03B2F718A3F5E0350AD1EBD7B7A4C0E7C272A",
+      "height": "10479951",
+      "success": true,
+      "messages": [
+        "/qorechain.pqc.v1.MsgRegisterPQCKeyV2"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "enrollment",
+      "hybridLayer": false,
+      "mlDsa87Verified": null,
+      "signer": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf",
+      "registration": true
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.txs.openWindow",
+      "hash": "F479A084EF4BF1C552948102255CA43AC2F246294D127EDED372DAC27E660037",
+      "height": "10479954",
+      "success": true,
+      "messages": [
+        "/qorechain.pqc.v1.MsgOpenEVMWindow"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "pqc",
+      "hybridLayer": true,
+      "mlDsa87Verified": true,
+      "signer": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf",
+      "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.txs.faucetClaim",
+      "hash": "0xfe1e90ca3fb8cb370d3673eab74fa527ddf924df4eeb95e4929b1e66893498af",
+      "height": "10479961",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.txs.approve",
+      "hash": "0x926f39530d1175c6c9a86e77a128737a23fb9e07e16f237f8152baf862caa11a",
+      "height": "10479962",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "freshGuestProof.txs.commitBid",
+      "hash": "0x26c3c570ccff6a28b12d93ade1c28ae8079b208fd47306b35a1328d4057d7408",
+      "height": "10479964",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor13q5ypf84g2c7ptsxw8u0kx4da20chq2686lzmf"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.funding.tx",
+      "hash": "73DC219B744E96634C66D6065791A93AF270FBC41B6DDB229304AB7A4E99464B",
+      "height": "10480360",
+      "success": true,
+      "messages": [
+        "/cosmos.bank.v1beta1.MsgSend"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "pqc",
+      "hybridLayer": true,
+      "mlDsa87Verified": true,
+      "signer": "qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh",
+      "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.txs.registerPqcKey",
+      "hash": "7F20E3D5B637C345A157E85CEB85E4979354F73223B875769D454103C357C28E",
+      "height": "10480399",
+      "success": true,
+      "messages": [
+        "/qorechain.pqc.v1.MsgRegisterPQCKeyV2"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "enrollment",
+      "hybridLayer": false,
+      "mlDsa87Verified": null,
+      "signer": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr",
+      "registration": true
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.txs.openWindow",
+      "hash": "815E5B0AF83A4451D564715E8902A8136F7ADA7F3EA4D46F53AC20BDDE48F60E",
+      "height": "10480407",
+      "success": true,
+      "messages": [
+        "/qorechain.pqc.v1.MsgOpenEVMWindow"
+      ],
+      "lane": "native",
+      "expectedRefusal": false,
+      "tier": "pqc",
+      "hybridLayer": true,
+      "mlDsa87Verified": true,
+      "signer": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr",
+      "registration": false
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.txs.faucetClaim",
+      "hash": "0x100a4a1d3fdbe9f56b05089991478ccd4eed453c34b55d4fc8760607c271ea91",
+      "height": "10480410",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.txs.approve",
+      "hash": "0xfcbc35316b9a02ea7633a662ba3305e2269d09b194fb289251d6726e4d03fda1",
+      "height": "10480416",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr"
+    },
+    {
+      "file": "open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json",
+      "label": "videoCaptureBid.txs.commitBid",
+      "hash": "0xd1829394ede92bf0767438cdc39c24ce279dae3971803d79ff46c49070ed386d",
+      "height": "10480418",
+      "success": true,
+      "messages": [
+        "/cosmos.evm.vm.v1.MsgEthereumTx"
+      ],
+      "lane": "evm",
+      "expectedRefusal": false,
+      "tier": "classical",
+      "from": "qor17rl092hxac2mdtfsn5e0xktus6xkcvm8ngtzhr"
     },
     {
       "file": "open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json",

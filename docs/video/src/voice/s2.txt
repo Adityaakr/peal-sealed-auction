@@ -1,0 +1,1 @@
+Peal Sealed Auction removes that key holder. Every bid gets its own key, split across a committee of three. No single member can open a bid: it takes two of the three keys, and the contract accepts their releases only after the chain closes bidding.

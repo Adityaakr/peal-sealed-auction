@@ -1,5 +1,7 @@
 # The 3-minute demo
 
+The submission video itself (2:59, narrated) was made from the landing page and the live app; its source and how to render it are in [`video/`](video/). This page is the shot list for recording the whole lifecycle live instead.
+
 A shot list for the Encrypted Apps video, following the design's demo script. Every shot is something that runs today. The testnet shots cost very little: about 0.35 QOR per bidder and 0.33 QOR per committee member per run. Shots marked *local* use the local stack, which costs nothing.
 
 ## Before recording

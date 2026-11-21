@@ -1,0 +1,1 @@
+After the chain closes bidding, each member opens its own shares, and signs one release over every bid with M L D S A eighty-seven. The contract checks each signature with P Q C verify, against the key the chain registered, so a forged release reverts. One share alone is just a random number. Two releases are enough: the contract rebuilds each key, and decrypts every bid itself.
