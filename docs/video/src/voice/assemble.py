@@ -5,7 +5,7 @@ Run from the composition directory, after synthesising each clip with Kokoro:
     for i in 1 2 3 4 5 6 7 8 9; do
       npx hyperframes tts src/voice/s$i.txt -v af_heart -o assets/vo/s$i.wav
     done
-    python3 src/voice/assemble.py 0.9,0.9,0.9,0.9,0.9,0.9,0.9,1.0 0.6
+    python3 src/voice/assemble.py 0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.7 0.4
 
 Arguments: the eight pauses between clips, then the lead-in, in seconds. Writes
 assets/voiceover.wav and src/voice/vo-timing.json (each clip's start and length,
@@ -26,7 +26,10 @@ t, starts = lead, []
 for i, d in enumerate(durs):
     starts.append(round(t, 3))
     t += d + (gaps[i] if i < 8 else 0)
-print("starts", starts, "speech ends", round(starts[-1] + durs[-1], 2))
+end = starts[-1] + durs[-1]
+print("starts", starts, "speech ends", round(end, 2))
+if end > TOTAL:
+    sys.exit(f"the narration ends at {end:.2f} s, {end - TOTAL:.2f} s past the {TOTAL} s film: shorten a clip or the pauses")
 json.dump({"durs": durs, "starts": starts}, open("src/voice/vo-timing.json", "w"), indent=1)
 inputs, filt = [], []
 for i, s in enumerate(starts):

@@ -1,4 +1,4 @@
-<!-- {"id":"reveal","start":15.75,"dur":14.1} -->
+<!-- {"id":"reveal","start":15.256,"dur":16.045} -->
 <style>
   #s2-lock { position: absolute; left: 510px; top: 404px; width: 900px; height: 132px; }
   #s2-lockwrap { position: absolute; inset: 0; }
@@ -28,20 +28,20 @@
   // "Peal Sealed Auction removes that key holder."
   tl.fromTo("#s2-lock", { opacity: 0, filter: "blur(10px)", scale: 0.97 }, { opacity: 1, filter: "blur(0px)", scale: 1, duration: 0.7, ease: "expo.out" }, 0.1);
   inn("#s2-kicker", 1.2);
-  out("#s2-lockwrap", 3.55, 0.3);
+  out("#s2-lockwrap", 3.3, 0.3);
   // "Every bid gets its own key, split across a committee of three."
   camSet("#s2-cam", [100, 140, 1240, 560], BOX);
-  inn("#s2-chap", 3.75);
-  inn("#s2-view", 3.8, { d: 0.5 });
-  camTo("#s2-cam", [884, 175, 700, 470], BOX, 4.4, 1.4);
-  hlIn("#s2-hl-vault", 4.3);
-  hlOut("#s2-hl-vault", 6.2);
-  hlIn("#s2-hl-keys", 6.3);
-  // "No one can open a bid until two of the three keys meet"
-  hlOut("#s2-hl-keys", 8.2);
-  camTo("#s2-cam", [130, 200, 680, 200], BOX, 8.2, 1.3);
-  // "and that only happens after the chain closes bidding."
-  camTo("#s2-cam", [810, 470, 520, 170], BOX, 11.4, 1.1);
-  hlIn("#s2-hl-close", 12.4);
+  inn("#s2-chap", 3.5);
+  inn("#s2-view", 3.55, { d: 0.5 });
+  camTo("#s2-cam", [884, 175, 700, 470], BOX, 4.1, 1.4);
+  hlIn("#s2-hl-vault", 4.0);
+  hlOut("#s2-hl-vault", 6.0);
+  hlIn("#s2-hl-keys", 6.1);
+  // "No single member can open a bid: it takes two of the three keys"
+  hlOut("#s2-hl-keys", 7.5);
+  camTo("#s2-cam", [130, 200, 680, 200], BOX, 7.6, 1.3);
+  // "and the contract accepts their releases only after the chain closes bidding."
+  camTo("#s2-cam", [810, 470, 520, 170], BOX, 12.0, 1.1);
+  hlIn("#s2-hl-close", 13.5);
   endScene("#s2-stage");
 </script>

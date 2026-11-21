@@ -39,7 +39,7 @@ You need a browser and about 1 test QOR. Nothing to install.
 2. Fund it with about 1 QOR: the drawer's **Dashboard faucet** button (sign in with your QoreChain account), or one transfer approved in QoreX. Press **Check balance**.
 3. Press **Place a sealed bid**. On the bid page, **Check every member's keys** shows three green checks: each member's ML-DSA-87 key from the chain, its ML-KEM-1024 key from the registry, and its signed card.
 4. Enter a quantity and a price limit, then **Seal in this browser and commit**. The page claims 1,000 PEAL-T from the demo faucet if you have none, registers your ML-DSA-87 key, opens one EVM window scoped to the three contracts it calls, and commits. It shows your ciphertext and the three 1,752-byte envelopes.
-5. **Watch the results**: your bid is listed as yours, still sealed. Nobody, including the committee, can read it before bidding closes on 17 December.
+5. **Watch the results**: your bid is listed as yours, still sealed. No single committee member can read it, and the contract accepts releases only after bidding closes on 17 December. Two members together could combine their shares off chain earlier, so confidentiality assumes fewer than two collude; in this demo one owner holds all three member keys (see [Honest limits](#honest-limits) and [`THREAT_MODEL.md`](THREAT_MODEL.md)).
 
 To see what happens after the close, open the [settled testnet run](#testnet-demo-run-2026-11-16) on the results page: add `?auction=0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` to `/results.html`, and press **Check it in this browser** to verify both releases and reopen both bids yourself (it reads the chain's logs for about half a minute).
 
@@ -263,7 +263,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 
 ## Honest limits
 
-- **The demo committee is one person.** The owner holds all three member keys, as three separate accounts. The protocol is built for three independent members; the demo shows the mechanism, not the independence.
+- **The demo committee is one person.** The owner holds all three member keys, as three separate accounts, so in the demo the owner could read bids before the close. The protocol is built for three independent members, where confidentiality holds while fewer than two collude; the demo shows the mechanism, not the independence.
 - **Releases are run by the owner after the close.** Members release from their own committee page or with `npm run committee`, not from the hosted site's guest account. The open demo auction is settled with `npm run testnet -- settle 0x53537D…5646` after 17 December.
 - **A visitor needs about 1 test QOR first.** The dashboard faucet asks the visitor to sign in, and QoreX can fund a guest in one transfer. The site has no faucet of its own for QOR, only for PEAL-T.
 - **QoreX cannot send EVM transactions for pages yet**, so it funds the guest account rather than bidding itself; MetaMask bids only through the guest's spending rule.

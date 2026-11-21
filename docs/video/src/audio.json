@@ -1,13 +1,74 @@
 {
  "total": 179,
  "clips": [
-  { "id": "vo", "src": "assets/voiceover.wav", "start": 0, "duration": 179, "track-index": 3, "volume": 1 },
-  { "id": "bed-a", "src": "assets/music/bed.mp3", "start": 0, "duration": 116, "track-index": 4, "volume": 0.08, "fade-in": 1.5, "fade-out": 3 },
-  { "id": "bed-b", "src": "assets/music/bed.mp3", "start": 114, "duration": 65, "media-start": 9.29, "track-index": 5, "volume": 0.08, "fade-in": 2.5, "fade-out": 4 },
-  { "id": "sfx-checks", "src": "assets/sfx/drop_002.ogg", "start": 74.1, "duration": 0.191, "track-index": 6, "volume": 0.45 },
-  { "id": "sfx-seal", "src": "assets/sfx/drop_001.ogg", "start": 88.1, "duration": 0.11, "track-index": 6, "volume": 0.55 },
-  { "id": "sfx-refused", "src": "assets/sfx/impactSoft_medium_001.ogg", "start": 108.75, "duration": 0.183, "track-index": 6, "volume": 0.6 },
-  { "id": "sfx-clear", "src": "assets/sfx/drop_002.ogg", "start": 132.45, "duration": 0.191, "track-index": 6, "volume": 0.5 },
-  { "id": "sfx-end", "src": "assets/sfx/bong_001.ogg", "start": 172.3, "duration": 0.123, "track-index": 6, "volume": 0.5 }
+  {
+   "id": "vo",
+   "src": "assets/voiceover.wav",
+   "start": 0,
+   "duration": 179,
+   "track-index": 3,
+   "volume": 1
+  },
+  {
+   "id": "bed-a",
+   "src": "assets/music/bed.mp3",
+   "start": 0,
+   "duration": 117,
+   "track-index": 4,
+   "volume": 0.08,
+   "fade-in": 1.5,
+   "fade-out": 3
+  },
+  {
+   "id": "bed-b",
+   "src": "assets/music/bed.mp3",
+   "start": 115,
+   "duration": 64,
+   "media-start": 9.29,
+   "track-index": 5,
+   "volume": 0.08,
+   "fade-in": 2.5,
+   "fade-out": 4
+  },
+  {
+   "id": "sfx-checks",
+   "src": "assets/sfx/drop_002.ogg",
+   "start": 75.01,
+   "duration": 0.191,
+   "track-index": 6,
+   "volume": 0.45
+  },
+  {
+   "id": "sfx-seal",
+   "src": "assets/sfx/drop_001.ogg",
+   "start": 89.21,
+   "duration": 0.11,
+   "track-index": 6,
+   "volume": 0.55
+  },
+  {
+   "id": "sfx-refused",
+   "src": "assets/sfx/impactSoft_medium_001.ogg",
+   "start": 110.48,
+   "duration": 0.183,
+   "track-index": 6,
+   "volume": 0.6
+  },
+  {
+   "id": "sfx-clear",
+   "src": "assets/sfx/drop_002.ogg",
+   "start": 133.78,
+   "duration": 0.191,
+   "track-index": 6,
+   "volume": 0.5
+  },
+  {
+   "id": "sfx-end",
+   "src": "assets/sfx/bong_001.ogg",
+   "start": 173.27,
+   "duration": 0.123,
+   "track-index": 6,
+   "volume": 0.5
+  }
  ]
 }

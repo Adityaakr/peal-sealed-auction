@@ -1,1 +1,1 @@
-The demo auction takes sealed bids until December the seventeenth. Make a guest account, and place a bid that nobody can open early.
+The demo auction takes sealed bids until December the seventeenth. Make a guest account, and place a bid that no single key holder can open early.

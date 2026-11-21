@@ -65,7 +65,7 @@ async function createAuction(
   release: bigint,
   evm: Evm,
   numTicks = 8,
-  opts: { buyback?: boolean; maxBids?: number } = {},
+  opts: { buyback?: boolean; maxBids?: number; endTime?: bigint } = {},
 ): Promise<{ auction: Address; cfg: { endTime: bigint; releaseDeadline: bigint } }> {
   const client = publicClient();
   const now = (await client.getBlock()).timestamp;
@@ -83,8 +83,8 @@ async function createAuction(
     tickSize: buyback ? parseUnits("0.25", 18) : 500_000n,
     numTicks,
     startTime: now,
-    endTime: now + commit,
-    releaseDeadline: now + commit + release,
+    endTime: opts.endTime ?? now + commit,
+    releaseDeadline: (opts.endTime ?? now + commit) + release,
     minBidQuantity: 1n,
     maxQuantityPerAddress: 0n,
     // openBids for every bid must fit one 3M-gas window transaction when settling (about 120k a bid).
@@ -126,16 +126,19 @@ export async function create(argv: string[]): Promise<void> {
     console.log(`${label}: gas ${r.gasUsed}, tx ${r.transactionHash}`);
     return r;
   };
-  let commit = BigInt(values["commit-seconds"]!);
+  let endTime: bigint | undefined;
   if (values.until) {
+    // An explicit zone only (Z or +hh:mm), so the deadline never depends on this machine's time zone.
+    if (!/(Z|[+-]\d{2}:?\d{2})$/.test(values.until)) throw new Error(`--until: give a UTC time with a zone, e.g. 2026-12-17T00:00:00Z (got ${values.until})`);
     const end = Date.parse(values.until);
     if (Number.isNaN(end)) throw new Error(`--until: not a date: ${values.until}`);
-    commit = BigInt(Math.floor(end / 1000)) - (await publicClient().getBlock()).timestamp;
-    if (commit <= 0n) throw new Error(`--until: ${values.until} has passed`);
+    endTime = BigInt(Math.floor(end / 1000));
+    if (endTime <= (await publicClient().getBlock()).timestamp) throw new Error(`--until: ${values.until} has passed`);
   }
-  const { auction } = await createAuction(d, deployer, commit, BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
+  const { auction } = await createAuction(d, deployer, BigInt(values["commit-seconds"]!), BigInt(values["release-seconds"]!), evm, Number(values.ticks), {
     buyback: values.buyback,
     maxBids: values["max-bids"] ? Number(values["max-bids"]) : undefined,
+    endTime,
   });
   if (values.demo) {
     // Point the pages (and the hosted site) at it as the visitors' open demo auction.

@@ -1,7 +1,8 @@
 // capture.mjs - the real screens the film shows, at 2x, from the built site served as Vercel serves it.
 //
 //   (in the repository)  npm run web:build && npm run web:preview
-//   (in the film folder) REPO=<repository> FUND=deployer $REPO/node_modules/.bin/tsx src/capture.mjs [base]
+//   (in the film folder) export REPO=/absolute/path/to/peal-sealed-auction
+//                        FUND=deployer "$REPO/node_modules/.bin/tsx" src/capture.mjs [base]
 //
 // base defaults to http://localhost:4173 (or the hosted site). The app shots are a FRESH guest
 // account made in the page, which places a real sealed bid in the open demo auction on the
@@ -16,7 +17,8 @@ const REPO = process.env.REPO;
 if (!REPO) throw new Error("set REPO to the peal-sealed-auction checkout");
 const { chromium } = await import(join(REPO, "node_modules/playwright-core/index.mjs"));
 const base = (process.argv[2] ?? "http://localhost:4173").replace(/\/$/, "");
-const Q = base.includes("localhost") ? "?net=testnet" : "";
+// Served from this machine the pages prefer a local stack, so ask for the testnet explicitly.
+const Q = ["localhost", "127.0.0.1", "[::1]"].includes(new URL(base).hostname) ? "?net=testnet" : "";
 const SETTLED = "0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124";
 const OUT = join(process.cwd(), "assets", "shots");
 const shot = (el, name) => el.screenshot({ path: join(OUT, `${name}.png`) });
