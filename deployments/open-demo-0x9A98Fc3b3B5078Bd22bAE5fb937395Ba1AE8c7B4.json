@@ -37,6 +37,30 @@
       "commitBidNative": "6F874FE06CE37981A3D2CEA984275DE1DE8DDB36CBF29004F264DB50A10661C4"
     },
     "bid": "10 fUSD at most 1.25 PEAL-T each: escrow 12.5 + bond 1 PEAL-T",
-    "qorSpent": "0.513393 (2 \u2192 1.486607)"
+    "qorSpent": "0.513393 (2 → 1.486607)"
+  },
+  "settlement": {
+    "what": "Settled on 23 November 2026 after bidding closed with 3 visitor bids (all from guest accounts made in the page). Members 1 and 2 released with npm run testnet -- settle; member 3 released with its own daemon, so finalize could run before the release deadline. A fresh guest account then pressed Finalize and Pay out every bid and the issuer on the results page, served as Vercel serves it (npm run web:preview).",
+    "commands": [
+      "npm run testnet -- settle 0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4 (close, two releases, openBids)",
+      "npm run testnet -- window committee3 0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4",
+      "npx tsx apps/committee/daemon.ts --member committee3 --auction 0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4 --once",
+      "results page: Finalize, then Pay out every bid and the issuer (guest 0xb074211AaA6C854C5b77CD0CBBbE3DD99ED04eba)"
+    ],
+    "txs": {
+      "closeCommit": "0x61848df1c353309b7f2dc7dac93b71c546196bbccdf236a790e640b2e3ae4152",
+      "releaseMember1": "0x41be498122263c7d9aa65e29aafc25be03590e9f16d0a4a28f2682b0ce12a856",
+      "releaseMember2": "0x9be175179c15e583665ac97ed8224de99f67a9ceee737838f66bf1b37ec8129c",
+      "openBids": "0x1742f4a6918b9ca69aca126b5af53dff7d53034dd40f851f076b6bffbf1f25e9",
+      "releaseMember3": "0xec0d4b521bfa0ace019a90a17b837ba6ef94efc633ef9f3e3bc351e963917855",
+      "finalize": "0x7a0c8f182895a3820ff4f86f1b3bbf610b69d65468686f6c1e8393ef2de888e5",
+      "claimBid0": "0xc0e4fef6f96a2e0de2573060db09e7f3f3753dc1e3f8d06333d4726399f4a734",
+      "claimBid1": "0xb1f7678ed2f207b8e5efaee1c289ac5d43ca78e82cd4d75a19405a1a072eb8ac",
+      "claimBid2": "0x438c84b794639be9b4e0e682ca16903f8c7d47f5c04bffbb504440b0f38ac635",
+      "claimProceeds": "0x2a4d9379e36206aa6f54437cb31be3f5c92ada7db8f6d4b98c9d14b2230f5d08",
+      "claimUnsold": "0xdd3bdc626556695c5f9504a09ac4b978c0ac35ae646e5557a036fc5aa8dc9b1a"
+    },
+    "outcome": "3 bids opened (10 fUSD at most 1.25, 1 fUSD at most 0.50, 1 fUSD at most 0.50 PEAL-T per fUSD); undersubscribed (12 of 50 fUSD), so it cleared at the reserve, 0.50 PEAL-T per fUSD: 12 fUSD bought back for 6 PEAL-T, the unsold 38 fUSD returned to the issuer",
+    "audit": "npm run testnet -- audit 0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4: all 3 ML-DSA-87 release signatures verified off chain with @qorechain/pqc against keys from pqcKeyStatus; every bid reopened from the stored shares agrees with the contract (audit passed); the results page's Check it in this browser gives the same"
   }
 }
