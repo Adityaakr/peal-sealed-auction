@@ -6,8 +6,9 @@ QoreChain "Build Before Q-Day" Developer Fest · category **Encrypted Apps** · 
 
 | | |
 |---|---|
-| **Live site** | <https://peal-sealed-auction.vercel.app> (testnet; the app is at `/auctions.html`) |
-| **Open demo auction** | `0x53537D8510AD0567F6E44613257Ae7b513395646` (`qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj`), open for sealed bids until **17 December 2026, 00:00 UTC** |
+| **Live site** | <https://peal-sealed-auction.vercel.app> (testnet; the app is at `/auctions.html`). The same build, with the same headers and rewrites, also runs on your machine: clone ([Try it](#try-it)), then `npm ci && npm run web:build && npm run web:preview` and open <http://localhost:4173> |
+| **Open demo auction** | `0x53537D8510AD0567F6E44613257Ae7b513395646` ([explorer](https://explore.qore.network/address/qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj)), open for sealed bids until **17 December 2026, 00:00 UTC** |
+| **Settled on the testnet** | two whole auctions, each checkable in your browser: [16 Nov run](#testnet-demo-run-2026-11-16) (`0x9CbA…c124`) and the [first open demo](#the-first-open-demo-settled-2026-11-23) (`0x9A98…c7B4`, three visitor bids) |
 | **Video** (up to 3 min) | linked on the [project page](https://build.qorechain.io/p/peal-sealed-auction); its source is in [`docs/video/`](docs/video/) |
 | **Project page** | <https://build.qorechain.io/p/peal-sealed-auction> |
 | **Testnet addresses** | [Live on the testnet](#live-on-the-testnet), with their `qor1` forms |
@@ -29,7 +30,19 @@ As a result:
 - **The bidder cannot back out.** The bid is fixed at commit; there is no reveal step to skip after seeing others.
 - **A missing or malicious member cannot sink the auction.** Any two members open every bid. A forged or wrong release reverts. A bid that cannot open is refunded, never fatal.
 
-**It runs on the testnet.** One whole auction ran there end to end with the real precompiles: two sealed bids, a forged release refused by `pqcVerify`, two releases with the third member offline, on-chain decryption, and one clearing price ([run below](#testnet-demo-run-2026-11-16)).
+**Why post-quantum matters here.** A sealed bid is public ciphertext from the moment it is committed, and it must stay unreadable for weeks. Anyone can copy the envelopes today and try to open them later. ML-KEM-1024 keeps them closed against a future quantum computer, and that matters most for an auction that is still open or a bid that never opens. Who may open bids is decided by signatures: joining a committee and releasing a share are both ML-DSA-87 signatures that the contract checks with `pqcVerify`, so a recovered ECDSA key alone can do neither. Every call site, what it protects and its tests: [`docs/PQC.md`](docs/PQC.md).
+
+**It runs on the testnet.** One whole auction ran there end to end with the real precompiles: two sealed bids, a forged release refused by `pqcVerify`, two releases with the third member offline, on-chain decryption, and one clearing price ([run below](#testnet-demo-run-2026-11-16)). A second, the first open demo with three bids from visitors' guest accounts, was settled on 23 November ([below](#the-first-open-demo-settled-2026-11-23)).
+
+## For the jury: where to check each criterion
+
+| Criterion | Where to check it |
+|---|---|
+| Works as described | [Try it in 5 minutes](#try-it-in-5-minutes) on the live site; two settled auctions that the results page re-verifies in your browser; `npm run e2e:local` and `npm run web:smoke` run a whole auction locally |
+| QoreChain tech, in the repo and on chain | [The category's requirements, with evidence](#the-categorys-requirements-with-evidence); every kit and network feature with its evidence in [`docs/kits.md`](docs/kits.md); `npm run evidence` re-checks every recorded transaction through the `qore` CLI (on 23 November: 30 of 30 native transactions with a verified ML-DSA-87 layer, 67 of 67 EVM transactions succeeded) |
+| Post-quantum correctness and security | [`docs/PQC.md`](docs/PQC.md): every `pqcVerify` and `pqcKeyStatus` call, what it protects, its tests and a testnet transaction; [`THREAT_MODEL.md`](THREAT_MODEL.md): every attack, what stops it and the test |
+| Originality | Threshold-shared bid keys under ML-KEM, ML-DSA-checked releases, and decryption by the contract itself, instead of QoreChain's one-auction-key recipe ([In one minute](#in-one-minute)); what came from the author's earlier project is listed in [Prior work](#prior-work) |
+| Clarity, UX and documentation | the landing page's six diagrams; [`docs/DEMO.md`](docs/DEMO.md); [Honest limits](#honest-limits) |
 
 ## Try it in 5 minutes
 
@@ -41,9 +54,11 @@ You need a browser and about 1 test QOR. Nothing to install.
 4. Enter a quantity and a price limit, then **Seal in this browser and commit**. The page claims 1,000 PEAL-T from the demo faucet if you have none, registers your ML-DSA-87 key, opens one EVM window scoped to the three contracts it calls, and commits. It shows your ciphertext and the three 1,752-byte envelopes.
 5. **Watch the results**: your bid is listed as yours, still sealed. No single committee member can read it, and the contract accepts releases only after bidding closes on 17 December. Two members together could combine their shares off chain earlier, so confidentiality assumes fewer than two collude; in this demo one owner holds all three member keys (see [Honest limits](#honest-limits) and [`THREAT_MODEL.md`](THREAT_MODEL.md)).
 
-To see what happens after the close, open the [settled testnet run](#testnet-demo-run-2026-11-16) on the results page: add `?auction=0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` to `/results.html`, and press **Check it in this browser** to verify both releases and reopen both bids yourself (it reads the chain's logs for about half a minute).
+To see what happens after the close, open a settled auction on the results page and press **Check it in this browser**. It verifies every release and reopens every bid itself, reading the chain's logs for about half a minute:
+- [the 16 November run](https://peal-sealed-auction.vercel.app/results.html?auction=0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124): two bids, member 3 offline, a forged release refused;
+- [the first open demo](https://peal-sealed-auction.vercel.app/results.html?auction=0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4): three bids from visitors' guest accounts, settled on 23 November.
 
-A first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).
+The README's steps were run again as a stranger on 23 November 2026 (UTC): a fresh browser profile, a new guest, the production build with Vercel's headers and rewrites. All three members checked, the bid sealed and committed for 0.36 QOR, and the bid was listed as "you, sealed" on the results page (`strangerTest` in the file below). Before that, a first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).
 
 ## What the site does
 
@@ -110,23 +125,25 @@ Every testnet hash is listed in [`deployments/`](deployments/). `npm run evidenc
 
 | Contract | Address | Native (`qor1`) form |
 |---|---|---|
-| `CommitteeRegistry` | `0x95ea32ba3077070a562a9f7ad2e969f231689bae` | `qor1jh4r9w3swurs5432naad96tf7gck3xawg5j7fu` |
-| `SealedAuction` (implementation) | `0xd4a1196aebe17121db3d6c1d56b326575faf62b3` | `qor16js3j6htu9cjrkeadsw4dvex2a067c4nke5qvn` |
-| `SealedAuctionFactory` | `0x1160ab95b570a65bbadb488c76e2f8515f3d6562` | `qor1z9s2h9d4wzn9hwkmfzx8dchc290n6etzdq0pk7` |
-| Open demo auction (until 17 Dec 2026) | `0x53537D8510AD0567F6E44613257Ae7b513395646` | `qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj` |
-| Testnet demo run (settled) | `0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` | `qor1nja9e74jcx9f89fkeupfqmw4gwu9asfyu4xp8a` |
-| PEAL-T (demo token) | `0x7edc65adc95de061887ecd6fc8629f2a99fffe9e` | `qor10mwxttwfthsxrzr7e4husc5l92vlll57lceqlk` |
-| PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` | `qor1umpfg0l506ggez6z4apjn762h5gy2tjhgx37gg` |
+| `CommitteeRegistry` | `0x95ea32ba3077070a562a9f7ad2e969f231689bae` | [`qor1jh4r9w3swurs5432naad96tf7gck3xawg5j7fu`](https://explore.qore.network/address/qor1jh4r9w3swurs5432naad96tf7gck3xawg5j7fu) |
+| `SealedAuction` (implementation) | `0xd4a1196aebe17121db3d6c1d56b326575faf62b3` | [`qor16js3j6htu9cjrkeadsw4dvex2a067c4nke5qvn`](https://explore.qore.network/address/qor16js3j6htu9cjrkeadsw4dvex2a067c4nke5qvn) |
+| `SealedAuctionFactory` | `0x1160ab95b570a65bbadb488c76e2f8515f3d6562` | [`qor1z9s2h9d4wzn9hwkmfzx8dchc290n6etzdq0pk7`](https://explore.qore.network/address/qor1z9s2h9d4wzn9hwkmfzx8dchc290n6etzdq0pk7) |
+| Open demo auction (until 17 Dec 2026) | `0x53537D8510AD0567F6E44613257Ae7b513395646` | [`qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj`](https://explore.qore.network/address/qor12dfhmpgs45zk0ahygcfj27h8k5fnj4jx93y0kj) |
+| Testnet demo run (settled) | `0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` | [`qor1nja9e74jcx9f89fkeupfqmw4gwu9asfyu4xp8a`](https://explore.qore.network/address/qor1nja9e74jcx9f89fkeupfqmw4gwu9asfyu4xp8a) |
+| PEAL-T (demo token) | `0x7edc65adc95de061887ecd6fc8629f2a99fffe9e` | [`qor10mwxttwfthsxrzr7e4husc5l92vlll57lceqlk`](https://explore.qore.network/address/qor10mwxttwfthsxrzr7e4husc5l92vlll57lceqlk) |
+| PEAL-T faucet (1,000 per day) | `0xe6c2943ff47e908c8b42af4329fb4abd10452e57` | [`qor1umpfg0l506ggez6z4apjn762h5gy2tjhgx37gg`](https://explore.qore.network/address/qor1umpfg0l506ggez6z4apjn762h5gy2tjhgx37gg) |
 | fUSD (the fest's token) | `0x97143B771D34ddb9130b807b135Ae675A5a963CA` | |
+
+Explorer links open [QoreChain Explorer](https://explore.qore.network), which starts on mainnet: press **Testnet** in its top bar once, and the page reloads on `qorechain-diana`.
 
 | Account | Address | Native (`qor1`) form |
 |---|---|---|
-| Deployer and demo issuer | `0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40` | `qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh` |
-| Committee member 1 | `0x64eE2394BE93B0e840b06fd497df90E5295786Ee` | `qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx` |
-| Committee member 2 | `0x75588D0B6117D3C05694B656228508D461A996c4` | `qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v` |
-| Committee member 3 | `0x0E7db45Da1fD3d974218E59CF8C4387789fF1714` | `qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx` |
+| Deployer and demo issuer | `0xC9Ec3F3Af272d4b18917fba0E5C63E4056d9Be40` | [`qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh`](https://explore.qore.network/address/qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh) |
+| Committee member 1 | `0x64eE2394BE93B0e840b06fd497df90E5295786Ee` | [`qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx`](https://explore.qore.network/address/qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx) |
+| Committee member 2 | `0x75588D0B6117D3C05694B656228508D461A996c4` | [`qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v`](https://explore.qore.network/address/qor1w4vg6zmpzlfuq455ketz9pgg63s6n9ky76zt0v) |
+| Committee member 3 | `0x0E7db45Da1fD3d974218E59CF8C4387789fF1714` | [`qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx`](https://explore.qore.network/address/qor1pe7mghdpl57ewsscukw033pcw7yl79c5z7aygx) |
 
-Open demo auction for visitors: `0x53537D8510AD0567F6E44613257Ae7b513395646` (a buyback: 50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD, bond 1 PEAL-T, at most 32 bids, bidding until 17 December 2026 00:00 UTC, releases until 18 December), opened with `npm run testnet -- create --buyback --demo --until 2026-12-17T00:00:00Z --release-seconds 86400 --max-bids 32`; transactions in `deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json`. The first demo auction, `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`, took bids until 23 November.
+Open demo auction for visitors: `0x53537D8510AD0567F6E44613257Ae7b513395646` (a buyback: 50 fUSD for PEAL-T, limits 0.50 to 2.25 PEAL-T per fUSD, bond 1 PEAL-T, at most 32 bids, bidding until 17 December 2026 00:00 UTC, releases until 18 December), opened with `npm run testnet -- create --buyback --demo --until 2026-12-17T00:00:00Z --release-seconds 86400 --max-bids 32`; transactions in `deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json`. The first demo auction, `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4`, took bids until 23 November and is settled ([below](#the-first-open-demo-settled-2026-11-23)).
 
 Committee set `0xd6da2884e224c0bff5db99f3b8443e2f7e9e8b5ac1be1786e4a29003fff90fe5`, 2 of 3. In the demo the owner holds all three member keys as separate accounts; this is disclosed and for the demo only.
 
@@ -150,6 +167,15 @@ Auction `0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124` sold 100 PEAL-T for fUSD. E
 | `openBids` | the contract rebuilt each K from two shares, checked it against `keyHash` and decrypted both bids | 286k |
 | `finalize` | cleared at 1.50 fUSD per PEAL-T: 60 to bidder 1 (bid 2.50, paid 1.50), 40 to bidder 2 | 236k |
 | claims | both bidders, the proceeds and the unsold supply paid out | 40k to 111k |
+
+### The first open demo, settled (2026-11-23)
+
+Auction `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4` bought back up to 50 fUSD for PEAL-T. It took three sealed bids from guest accounts made in the page, and bidding closed on 23 November. Then:
+- `npm run testnet -- settle` closed it, members 1 and 2 released, and `openBids` decrypted all three bids on chain;
+- member 3 released from its own daemon, so `finalize` could run before the release deadline;
+- a fresh guest account on the results page pressed **Finalize** and **Pay out every bid and the issuer**.
+
+It was undersubscribed (12 of 50 fUSD), so it cleared at the reserve, 0.50 PEAL-T per fUSD, and the unsold 38 fUSD went back to the issuer. `npm run testnet -- audit 0x9A98…c7B4` verifies all three ML-DSA-87 releases with `@qorechain/pqc` and reopens all three bids to what the contract recorded. Every hash is under `settlement` in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
 
 ## Try it
 
@@ -293,6 +319,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `deployments/` | Testnet addresses and every transaction hash |
 | `docs/spikes.md` | Testnet facts settled by experiment |
 | `docs/kits.md` | The QoreChain kits and network features used, why, and the evidence |
+| `docs/PQC.md` | Every `pqcVerify` and `pqcKeyStatus` call and every ML-KEM and ML-DSA use: what it protects, its tests, a testnet transaction |
 | `scripts/evidence.ts`, `deployments/evidence.json` | Every recorded transaction and account re-checked through the `qore` CLI |
 | `docs/qorescan/` | The crypto inventory (CycloneDX CBOM) and a draft agility statement, from QoreScan |
 | `.mcp.json` | The QoreChain MCP server (read-only) for coding agents working in this repository |

@@ -150,9 +150,17 @@ async function main(): Promise<void> {
   app.append(comm);
   commBtn.onclick = () =>
     guard(commBtn, async () => {
+      // The check reads three keys from the chain and three from REST: give it a visible state.
+      commOut.replaceChildren(el("p", { class: "muted small" }, "Checking each member's keys on the chain and in the registry; this can take up to a minute…"));
       const fallback = cfg.committeeCards ? await fetch(cfg.committeeCards).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined) : undefined;
-      const c = await readCommittee(client, cfg.registry, s.cfg.committeeSetId, undefined, fallback);
-      recipients = await resolveCommittee(c, { client, rest: cfg.rest });
+      let c: Awaited<ReturnType<typeof readCommittee>>;
+      try {
+        c = await readCommittee(client, cfg.registry, s.cfg.committeeSetId, undefined, fallback);
+        recipients = await resolveCommittee(c, { client, rest: cfg.rest });
+      } catch (err) {
+        commOut.replaceChildren(el("p", { class: "bad small" }, "The check failed; see Activity below."));
+        throw err;
+      }
       commOut.replaceChildren(
         ...c.members.map((m) =>
           el("div", { class: "ok member" }, icon("check"), el("span", {}, `Member ${m.index}`), el("span", { class: "mono" }, short(m.address, 6)), el("span", { class: "mono muted" }, `ML-KEM sha3 ${short(m.kemKeySha3, 6)}`)),

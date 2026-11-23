@@ -56,5 +56,25 @@
       "commitBid": "0xd1829394ede92bf0767438cdc39c24ce279dae3971803d79ff46c49070ed386d"
     },
     "bid": "8 fUSD at most 1.25 PEAL-T each: escrow 10 + bond 1 PEAL-T"
+  },
+  "strangerTest": {
+    "what": "A third fresh guest on 23 November 2026 (UTC), following the README's Try it steps through the production build with Vercel's headers and rewrites (npm run web:preview) in a fresh Chrome profile: landing page, Try it with a guest account, Create a guest account, Check balance, Place a sealed bid, Check every member's keys (3 verified), Seal in this browser and commit, then the results page",
+    "guest": {
+      "evm": "0xb074211AaA6C854C5b77CD0CBBbE3DD99ED04eba",
+      "native": "qor1kp6zzx42djz5ckmhe5xth03amx0dqn46xzdyvp"
+    },
+    "funding": {
+      "note": "test funding only: 1.2 QOR from the deployer stands in for the dashboard faucet, which needs a signed-in visitor",
+      "tx": "4BE9CFBD1568EB169AE3428726E4AA14A2D38DCF7FE38A82A028A88BB8003E51"
+    },
+    "txs": {
+      "registerPqcKey": "60A0E4BA1AAC041BA3E2BA1F236B01C5FF0F73B1EE3C953C13BDE81459F11CD4",
+      "openWindow": "087F45373ADA7AE0CF3395A72710C7801F8870C6708A372FDF81EC8279A9A2A2",
+      "faucetClaim": "0x11c59c5a50988f79caa649fa20e3cac55016c0947c8097070988404facc65456",
+      "approve": "0xabcd8de93f4100dc54ee4f97abc38ffe43023bd77a2f32619731b78c77156099",
+      "commitBid": "0xae0b0ae21a4d39b36b71c50bf0d0a93667831784b48ab407f4211b4ec5cbf535"
+    },
+    "bid": "4 fUSD at most 1.50 PEAL-T each: escrow 6 + bond 1 PEAL-T",
+    "qorSpent": "0.36 (1.2 → 0.84)"
   }
 }
