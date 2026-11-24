@@ -116,15 +116,23 @@ async function main(): Promise<void> {
   bAudit.onclick = () =>
     guard(bAudit, async () => {
       auditOut.replaceChildren(el("p", { class: "muted small" }, "Reading the releases and the stored shares…"));
-      const [r, s] = await Promise.all([auditAuction(client, auction), auctionSummary(client, auction)]);
-      const token = (t: Address, functionName: "decimals" | "symbol") => client.readContract({ address: t, abi: pealTAbi, functionName });
-      const [sd, qd, ss, qs] = await Promise.all([
-        token(s.cfg.saleToken, "decimals").then(Number),
-        token(s.cfg.quoteToken, "decimals").then(Number),
-        token(s.cfg.saleToken, "symbol"),
-        token(s.cfg.quoteToken, "symbol"),
-      ]);
-      const inWords = (p: { quantity: bigint; tick: number }) => `${amount(p.quantity, sd, sd)} ${ss} at ≤ ${amount(s.cfg.reservePrice + BigInt(p.tick) * s.cfg.tickSize, qd, qd)} ${qs}`;
+      // Token names and decimals only dress the report: if they cannot be read, it shows base units.
+      const terms = async () => {
+        const s = await auctionSummary(client, auction);
+        const token = (t: Address, functionName: "decimals" | "symbol") => client.readContract({ address: t, abi: pealTAbi, functionName });
+        const [sd, qd, ss, qs] = await Promise.all([
+          token(s.cfg.saleToken, "decimals").then(Number),
+          token(s.cfg.quoteToken, "decimals").then(Number),
+          token(s.cfg.saleToken, "symbol"),
+          token(s.cfg.quoteToken, "symbol"),
+        ]);
+        return { s, sd, qd, ss, qs };
+      };
+      const [r, t] = await Promise.all([auditAuction(client, auction), terms().catch(() => undefined)]);
+      const inWords = (p: { quantity: bigint; tick: number }) =>
+        t
+          ? `${amount(p.quantity, t.sd, t.sd)} ${t.ss} at ≤ ${amount(t.s.cfg.reservePrice + BigInt(p.tick) * t.s.cfg.tickSize, t.qd, t.qd)} ${t.qs}`
+          : `${p.quantity} base units at tick ${p.tick}`;
       const releaseRows = r.releases.map((x) =>
         el(
           "tr",

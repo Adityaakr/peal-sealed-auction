@@ -104,7 +104,7 @@ describe("bundled committee cards", () => {
   });
 
   it("a bundle for another committee set, or one that is not a committee, is ignored", async () => {
-    for (const b of [bundle(undefined, `0x${"cd".repeat(32)}`), {} as Committee, { setId: SET, members: "x" } as unknown as Committee]) {
+    for (const b of [bundle(undefined, `0x${"cd".repeat(32)}`), {} as Committee, { setId: 42, members: [] } as unknown as Committee, { setId: SET, members: "x" } as unknown as Committee]) {
       expect((await readCommittee(chain().client, registry, SET, undefined, b)).cardsFrom).toBe("events");
     }
   });

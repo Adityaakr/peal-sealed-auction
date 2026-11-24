@@ -69,8 +69,10 @@ export async function readCommittee(
     args: [setId],
   });
   const refused: number[] = [];
+  // The copy is fetched JSON: check its shape before reading it.
+  const usable = typeof bundled?.setId === "string" && bundled.setId.toLowerCase() === setId.toLowerCase() && Array.isArray(bundled.members);
   const copies = members.map((m, i) => {
-    const card = bundled?.setId?.toLowerCase() === setId.toLowerCase() && Array.isArray(bundled.members) ? bundled.members.find((x) => x?.index === i + 1)?.card : undefined;
+    const card = usable ? bundled.members.find((x) => x?.index === i + 1)?.card : undefined;
     if (!card) return undefined;
     if (cardMatches(card, m.cardHash)) return card;
     refused.push(i + 1);

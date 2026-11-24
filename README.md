@@ -62,9 +62,9 @@ The steps were last run on 24 November 2026 (UTC), on the production build with 
 
 | Check | Before (n) | After (n) |
 |---|---|---|
-| Committee check, 3 members verified | 33 to 63 s (4), growing with every block | 1.4 to 2.0 s (10) |
-| Audit of the 16 November run | 31 to 33 s (2), growing with every block | 3.1 to 3.4 s (5) |
-| Audit of the first open demo | 6.4 to 6.5 s (2), growing with every block | 3.5 to 4.1 s (5) |
+| Committee check, 3 members verified | 33 to 63 s (4), growing with every block | 1.4 to 2.0 s (12) |
+| Audit of the 16 November run | 31 to 33 s (2), growing with every block | 2.9 to 3.4 s (6) |
+| Audit of the first open demo | 6.4 to 6.5 s (2), growing with every block | 3.5 to 4.1 s (6) |
 | Committee check with a wrong bundled card: refused, read from the chain | | 30 to 31 s (2) |
 
 The README's steps were also run as a stranger on 23 November 2026 (UTC): a fresh browser profile, a new guest, the production build with Vercel's headers and rewrites. All three members checked, the bid sealed and committed for 0.36 QOR, and the bid was listed as "you, sealed" on the results page (`strangerTest` in the file below). Before that, a first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).

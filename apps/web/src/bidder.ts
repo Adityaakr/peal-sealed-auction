@@ -229,7 +229,7 @@ async function main(): Promise<void> {
       h(
         "div.muted",
         esc.value === "exact"
-          ? `The escrow is public. Exactly ${fmt(least, quoteDec)} tells anyone your quantity × limit: at most ${s.cfg.numTicks} bids fit it, one per price step.`
+          ? `The escrow is public. Exactly ${fmt(least, quoteDec)} tells anyone your quantity × limit, rounded up to the token's last decimal: in whole ${saleSym}, at most ${s.cfg.numTicks} bids fit it, one per price step.`
           : `The escrow is public, so it is rounded up: your bid needs ${fmt(least, quoteDec)}, and others see only ${fmt(escrow, quoteDec)}, an upper bound on quantity × limit.`,
       ),
     );

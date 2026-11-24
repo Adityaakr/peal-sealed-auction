@@ -125,16 +125,17 @@ function section(title: string, ...children: (Node | string | null)[]): HTMLElem
 
 /** The whole native address, to copy into the faucet, with which address it is and what to do with it. */
 function fundingAddress(native: string): HTMLElement {
-  const copied = () => Date.now() < copiedUntil;
-  const b = h("button.btn.btn-small", { type: "button", id: "copy-native" }, icon(copied() ? "check" : "copy"), copied() ? "Copied" : "Copy qor1 address");
+  const label = () => (Date.now() < copiedUntil ? [icon("check"), "Copied"] : [icon("copy"), "Copy qor1 address"]);
+  const b = h("button.btn.btn-small", { type: "button", id: "copy-native" }, ...label());
+  // Only this button changes: redrawing the drawer would reset what is typed in it.
+  const relabel = () => document.getElementById("copy-native")?.replaceChildren(...label());
   const code = h("code.native-addr", { id: "native-address" }, native);
   b.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(native);
       copiedUntil = Date.now() + 2_000;
-      setTimeout(draw, 2_050);
-      draw();
-      document.getElementById("copy-native")?.focus();
+      setTimeout(relabel, 2_050);
+      relabel();
     } catch {
       // No clipboard here: select the address so it can be copied by hand.
       const r = document.createRange();

@@ -3,10 +3,11 @@
  *
  * A bid's quantity and price limit are sealed, but its escrow is a public token
  * transfer. The contract needs at least quantity x limit and refunds whatever is
- * not spent, so escrowing exactly that would publish the product: with 8 price
- * steps, at most 8 (quantity, limit) pairs give it. So the pages round the escrow
- * up to a bucket shared by many bids. What still leaks is the bucket: the product
- * is at most the bucket and, for a bidder who took the default, above the one below.
+ * not spent, so escrowing exactly that would publish the product, rounded up to
+ * the token's last decimal: with 8 price steps, at most 8 (whole quantity, limit)
+ * pairs give it. So the pages round the escrow up to a bucket shared by many bids.
+ * What still leaks is the bucket: the product is at most the bucket and, for a
+ * bidder who took the default, above the one below.
  */
 
 /** What the contract requires for a bid (`AuctionMath.escrowFor`): quantity x limit, rounded up. */
