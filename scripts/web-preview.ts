@@ -50,6 +50,10 @@ createServer(async (req, res) => {
     if (!m) continue;
     let dest = r.destination;
     for (const [k, v] of Object.entries(m.groups ?? {})) dest = dest.replace(`:${k}*`, v).replace(`:${k}`, v);
+    if (dest.startsWith("/")) {
+      url.pathname = dest; // a page of this site
+      break;
+    }
     const body = req.method === "GET" || req.method === "HEAD" ? undefined : await new Promise<Buffer>((ok) => {
       const parts: Buffer[] = [];
       req.on("data", (c: Buffer) => parts.push(c));

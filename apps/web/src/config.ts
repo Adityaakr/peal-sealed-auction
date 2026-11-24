@@ -48,11 +48,12 @@ async function fetchConfig(net: string): Promise<AppConfig | undefined> {
 /**
  * The page's network: `?net=local|testnet` when given; otherwise the local
  * stack's config when served from this machine and one exists, else the testnet
- * (what a hosted copy always uses).
+ * (what a hosted copy always uses). The judge page is about the deployed contracts,
+ * so it asks for the testnet only.
  */
-export async function loadConfig(): Promise<AppConfig> {
+export async function loadConfig(only?: "testnet"): Promise<AppConfig> {
   const q = new URLSearchParams(location.search);
-  const asked = q.get("net");
+  const asked = only ?? q.get("net");
   let cfg: AppConfig | undefined;
   if (asked === "local" || asked === "testnet") cfg = await fetchConfig(asked);
   else {

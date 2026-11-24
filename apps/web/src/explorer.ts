@@ -6,9 +6,12 @@
  * hash is looked up over REST first, and the link appears when it is known.
  * The explorer itself opens on mainnet until *Testnet* is pressed once.
  */
+import { bech32 } from "@scure/base";
+import { hexToBytes, type Address } from "viem";
 import { h, hash, icon } from "./ui.ts";
 
 const EXPLORER = "https://explore.qore.network/tx/";
+const EXPLORER_ADDRESS = "https://explore.qore.network/address/";
 /** What to tell people beside these links. */
 export const EXPLORER_NOTE = "The explorer opens on mainnet: press Testnet in its top bar once.";
 
@@ -65,4 +68,10 @@ export function explorerLink(tx: string): HTMLElement {
 /** A copyable transaction hash followed by its explorer link. */
 export function txHash(tx: string, label: string): HTMLElement {
   return h("span.tx", hash(tx, { label }), " ", explorerLink(tx));
+}
+
+/** An account or contract on the explorer, which knows addresses by their native (qor1) form. */
+export function addressLink(a: Address, label: string): HTMLElement {
+  const qor = bech32.encode("qor", bech32.toWords(hexToBytes(a)));
+  return h("span.tx", hash(a, { label }), " ", h("a", { href: EXPLORER_ADDRESS + qor, target: "_blank", rel: "noopener", title: EXPLORER_NOTE, "aria-label": `${label} in QoreChain Explorer` }, "explorer", icon("out")));
 }

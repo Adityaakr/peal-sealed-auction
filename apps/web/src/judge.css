@@ -1,0 +1,527 @@
+/* The judge page, in the landing page's world (landing.css): night, paper, brass.
+   Green and red mean refused as intended / not, always with a word. */
+
+.jd-main {
+  padding-top: 0;
+}
+
+.jd-main .sa-section {
+  padding-block: 72px;
+}
+
+.jd-main .sa-head {
+  margin-bottom: 36px;
+}
+
+.jd-hero {
+  padding-block: 48px 40px;
+}
+
+.jd-hero .sa-display {
+  font-size: 42px;
+  margin-bottom: 18px;
+}
+
+.jd-hero .sa-tag {
+  margin-bottom: 18px;
+}
+
+.jd-hero .sa-hero-lead {
+  font-size: 17px;
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+.jd-nav-cta {
+  margin-left: 0;
+}
+
+.jd-steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.jd-steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 12px 0 12px 40px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.jd-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 13px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--brass-dim);
+  border-radius: 4px;
+  color: var(--brass);
+  font: 500 13px/22px var(--f-data);
+  text-align: center;
+}
+
+.jd-steps a {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.landing .jd-steps a {
+  color: var(--paper);
+}
+
+.jd-step-time {
+  font: 400 13px/1.7 var(--f-data);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.jd-steps p {
+  margin: 0;
+  color: var(--paper-2);
+  font-size: 15px;
+}
+
+.jd-panel {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.jd-tally {
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+  color: var(--paper-2);
+}
+
+.jd-tally strong {
+  font: 400 22px/1.3 var(--f-display);
+  font-variation-settings: "wdth" 87.5;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+}
+
+.jd-tally .is-ok {
+  color: var(--ok);
+}
+
+.jd-tally .is-bad {
+  color: var(--bad);
+}
+
+.jd-tally .is-warn {
+  color: var(--amber-text);
+}
+
+.jd-run-all {
+  justify-content: center;
+}
+
+.jd-panel .sa-source {
+  margin: 0;
+}
+
+.jd-live {
+  min-height: 148px;
+}
+
+/* ---------------------------------------------------------------- shared pieces */
+
+.jd-skel {
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 16px;
+}
+
+.jd-fail {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--amber-border);
+  background: var(--amber-weak);
+  border-radius: 6px;
+  padding: 14px;
+  font-size: 14px;
+}
+
+.jd-fail > svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  color: var(--amber-text);
+}
+
+.jd-fail p {
+  margin: 4px 0 0;
+  color: var(--paper-2);
+  overflow-wrap: anywhere;
+}
+
+.jd-rows {
+  margin: 0;
+  font-size: 14px;
+}
+
+.jd-row {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.jd-row dt {
+  color: var(--muted);
+}
+
+.jd-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jd-panel .jd-row {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.jd-big {
+  font: 500 20px/1.3 var(--f-data);
+  color: var(--brass);
+}
+
+.jd-big small {
+  font-size: 13px;
+  color: var(--paper-2);
+}
+
+.jd-txs {
+  display: grid;
+  gap: 2px;
+}
+
+.landing .tx a svg,
+.landing .tx-link a svg {
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+}
+
+.jd-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.jd-card,
+.jd-attack {
+  background: var(--vault);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 22px;
+  min-width: 0;
+}
+
+.jd-card-title {
+  font: 600 18px/1.35 var(--f-text);
+  margin: 0;
+}
+
+.jd-card-sub {
+  margin: 4px 0 14px;
+  color: var(--paper-2);
+  font-size: 15px;
+}
+
+.jd-card-body > p {
+  margin: 12px 0;
+}
+
+.jd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.jd-audit {
+  font-size: 14px;
+}
+
+.jd-audit > p {
+  margin: 14px 0 6px;
+}
+
+.jd-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--paper-2);
+}
+
+/* ---------------------------------------------------------------- the attack panel */
+
+.jd-attacks {
+  display: grid;
+  gap: 16px;
+}
+
+.jd-attack,
+.sa-section[id] {
+  scroll-margin-top: 72px;
+}
+
+.jd-attack-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.jd-attack-top .sa-btn {
+  flex: none;
+  min-width: 92px;
+  justify-content: center;
+}
+
+.jd-attack-top .jd-card-sub {
+  margin-bottom: 0;
+}
+
+.jd-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.jd-results:not(:empty) {
+  margin-top: 14px;
+}
+
+.jd-res {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 24px;
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.jd-res-label {
+  font-weight: 500;
+}
+
+.jd-role {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font: 12px/18px var(--f-data);
+  color: var(--paper-2);
+}
+
+.jd-res.is-attack .jd-role {
+  border-color: var(--brass-dim);
+  color: var(--brass);
+}
+
+.jd-why {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--paper-2);
+}
+
+.jd-res-out {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  align-content: start;
+  min-width: 0;
+}
+
+.landing .jd-answer {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  color: var(--paper);
+}
+
+.jd-where {
+  font: 12px/1.5 var(--f-data);
+  color: var(--muted);
+}
+
+.jd-copy {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--line);
+  padding: 0;
+  font: inherit;
+  color: var(--paper-2);
+  cursor: copy;
+}
+
+.jd-copy:hover {
+  color: var(--brass);
+}
+
+.jd-copy:focus-visible,
+.jd-steps a:focus-visible,
+.jd-table a:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+.jd-wait {
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.jd-limit {
+  margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  font-size: 14px;
+  color: var(--paper-2);
+}
+
+/* ---------------------------------------------------------------- open auction */
+
+.jd-cts {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.jd-cts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.jd-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.jd-members li {
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- rubric */
+
+.jd-table {
+  font-size: 15px;
+}
+
+.jd-tr {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 4fr);
+  gap: 28px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--paper-2);
+}
+
+.jd-tr strong {
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.jd-tr small {
+  display: block;
+  color: var(--muted);
+  font: 12px/1.6 var(--f-data);
+}
+
+.jd-th {
+  padding: 8px 0;
+  font: 500 12px/1.4 var(--f-data);
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.jd-foot {
+  padding-top: 24px;
+}
+
+@media (max-width: 900px) {
+  .jd-cards,
+  .jd-res,
+  .jd-tr {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .jd-res {
+    gap: 8px;
+  }
+  .jd-tr {
+    gap: 8px;
+  }
+  .jd-th {
+    display: none;
+  }
+  .jd-tr > div[data-col]:not(:first-child)::before {
+    content: attr(data-col);
+    display: block;
+    font: 12px/1.6 var(--f-data);
+    color: var(--muted);
+  }
+}
+
+@media (max-width: 560px) {
+  .jd-main .sa-section {
+    padding-block: 48px;
+  }
+  .jd-main .sa-head {
+    margin-bottom: 24px;
+  }
+  .jd-hero {
+    padding-block: 24px 24px;
+  }
+  .jd-hero .sa-display {
+    font-size: 30px;
+    margin-bottom: 12px;
+  }
+  .jd-hero .sa-hero-grid {
+    gap: 24px;
+  }
+  .jd-hero .sa-hero-lead {
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  .jd-card,
+  .jd-attack {
+    padding: 16px;
+  }
+  .jd-row {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .jd-fail {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .jd-fail .sa-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
