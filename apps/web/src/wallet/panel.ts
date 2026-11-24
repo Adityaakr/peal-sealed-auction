@@ -4,11 +4,12 @@
  * running log of each step. Adapted from Peal Tender's apps/dashboard/src/wallet/panel.ts.
  */
 import { encodeFunctionData, parseAbi, parseUnits, type Address } from "viem";
+import { explorerLink, explorerOn, EXPLORER_NOTE } from "../explorer.ts";
 import { amount, chip, h, hash, icon } from "../ui.ts";
 import * as guest from "./guest.ts";
 import * as metamask from "./metamask.ts";
 import * as qorex from "./qorex.ts";
-import { act, emit, log, refreshGuest, setOpenPanel, state, subscribe } from "./store.ts";
+import { act, emit, log, refreshGuest, setPanel, state, subscribe } from "./store.ts";
 
 export const DASHBOARD_FAUCET = "https://dashboard.qorechain.io/faucet";
 export const QOREX_HELP = "https://docs.qorechain.io/qorex/browser-extension";
@@ -31,6 +32,8 @@ let open = false;
 let showPhrase = false;
 let pealtBal: bigint | undefined;
 let lastFocus: Element | null = null;
+/** When the "Copied" word on the address button goes back (the drawer redraws often). */
+let copiedUntil = 0;
 
 /** Configure the wallet for this page's network and mount the drawer. */
 export function mountWallet(c: WalletConfig): void {
@@ -40,7 +43,7 @@ export function mountWallet(c: WalletConfig): void {
   const scrim = h("div.wallet-scrim");
   scrim.addEventListener("click", () => setOpen(false));
   document.body.append(scrim, root);
-  setOpenPanel(() => setOpen(true));
+  setPanel(() => setOpen(true), () => setOpen(false));
   subscribe(() => {
     draw();
     void refreshToken();
@@ -120,6 +123,35 @@ function section(title: string, ...children: (Node | string | null)[]): HTMLElem
   return h("section.wallet-section", h("h3", title), ...children);
 }
 
+/** The whole native address, to copy into the faucet, with which address it is and what to do with it. */
+function fundingAddress(native: string): HTMLElement {
+  const label = () => (Date.now() < copiedUntil ? [icon("check"), "Copied"] : [icon("copy"), "Copy qor1 address"]);
+  const b = h("button.btn.btn-small", { type: "button", id: "copy-native" }, ...label());
+  // Only this button changes: redrawing the drawer would reset what is typed in it.
+  const relabel = () => document.getElementById("copy-native")?.replaceChildren(...label());
+  const code = h("code.native-addr", { id: "native-address" }, native);
+  b.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(native);
+      copiedUntil = Date.now() + 2_000;
+      setTimeout(relabel, 2_050);
+      relabel();
+    } catch {
+      // No clipboard here: select the address so it can be copied by hand.
+      const r = document.createRange();
+      r.selectNodeContents(code);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(r);
+    }
+  });
+  return h(
+    "div.fund-addr",
+    code,
+    b,
+    h("p.small.muted", "The dashboard faucet asks you to sign in. Give it this native ", h("strong", "qor1…"), " address, not the 0x one, then come back and press ", h("strong", "Check balance"), "."),
+  );
+}
+
 function guestSection(): HTMLElement {
   const g = state.guestStatus;
   if (!state.guest || !g) {
@@ -177,7 +209,7 @@ function guestSection(): HTMLElement {
           const uqor = parseUnits(amt.value.trim() || "0", 6);
           log(`Asking QoreX to send ${amt.value} QOR to your guest account…`);
           const sent = await qorex.sendQor(state.qorex!.cosmos, g.cosmos, uqor);
-          log(`QoreX sent it (tx ${sent.txHash.slice(0, 10)}…, ${sent.shield === "shielded" ? "hybrid ML-DSA-87 layer confirmed by QoreX" : `QoreX shield check: ${sent.shield}`}).`);
+          log(`QoreX sent it (tx ${sent.txHash.slice(0, 10)}…, ${sent.shield === "shielded" ? "hybrid ML-DSA-87 layer confirmed by QoreX" : `QoreX shield check: ${sent.shield}`}).`, sent.txHash);
           setTimeout(() => void refreshGuest(), 4000);
         } catch (e) {
           state.error = e instanceof Error ? e.message : String(e);
@@ -236,6 +268,7 @@ function guestSection(): HTMLElement {
       h("dd", cfg?.local ? chip("Local node: not needed", "plain") : g.keyRegistered ? (g.keyIsOurs ? chip("Registered", "ok") : chip("Another key", "bad")) : chip("Registers on first action", "wait")),
     ),
     h("div.small.muted", { style: "margin-top:12px" }, cfg?.local ? "1. Fund it" : "1. Fund it: about 1 QOR covers the key, the faucet claim and one bid"),
+    cfg?.local ? null : fundingAddress(g.cosmos),
     fundRow,
     cfg?.faucet ? h("div.small.muted", { style: "margin-top:12px" }, "2. Get PEAL-T to bid with in the demo auction") : null,
     cfg?.faucet ? tokenRow : null,
@@ -303,7 +336,8 @@ function draw(): void {
           { "aria-live": "polite" },
           h("h3", state.busy ? `Working: ${state.busy}` : "Last action"),
           state.error ? h("div.note.bad", { id: "wallet-error" }, state.error) : null,
-          h("ol.wallet-log", { id: "wallet-log" }, ...state.log.map((l) => h("li", l))),
+          h("ol.wallet-log", { id: "wallet-log" }, ...state.log.map((l) => h("li", l.text, l.tx ? " " : null, l.tx ? explorerLink(l.tx) : null))),
+          explorerOn() && state.log.some((l) => l.tx) ? h("p.small.muted.tx-note", EXPLORER_NOTE) : null,
         )
       : null;
   root.replaceChildren(

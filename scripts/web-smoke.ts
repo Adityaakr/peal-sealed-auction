@@ -114,12 +114,25 @@ async function visitor(browser: Browser, base: string): Promise<void> {
   await page.waitForFunction((g) => document.querySelector("#who")?.textContent === g, guest, { timeout: 30_000 });
   await page.click("#check-committee");
   await page.waitForFunction(() => document.querySelectorAll("#committee .ok").length === 3, null, { timeout: 60_000 });
-  await page.fill("#qty", "10");
+  await page.fill("#qty", "9");
   await page.selectOption("#tick", "2");
   await page.click("#seal-commit");
   await page.waitForFunction(() => [...document.querySelectorAll("#log .line")].some((l) => l.textContent?.includes("bid committed") || l.classList.contains("bad")), null, { timeout: 120_000 });
   const bad = await page.$$eval("#log .line.bad, #wallet-error", (ls) => ls.map((l) => l.textContent));
   if (bad.length) throw new Error(`bid page reported: ${bad.join(" | ")}`);
+  // The drawer, which opened for the steps, is out of the way, and the outcome is in view.
+  await page.waitForFunction(() => !document.body.classList.contains("wallet-open") && document.activeElement?.id === "bid-done", null, { timeout: 10_000 });
+  await page.waitForFunction(
+    () => {
+      const r = document.querySelector("#watch-results")?.getBoundingClientRect();
+      return r && r.top >= 0 && r.bottom <= window.innerHeight;
+    },
+    null,
+    { timeout: 10_000 },
+  );
+  // 9 fUSD at 1.00 needs 9 PEAL-T and is escrowed in the bucket of 10.
+  const escrowLine = (await page.textContent("#need div")) ?? "";
+  if (!/^Held until settlement: 10 PEAL-T escrow/.test(escrowLine)) throw new Error(`expected the 10 PEAL-T bucket, got: ${escrowLine}`);
   await shot(page, "0-guest-bid.png");
   await page.goto(`${base}/results.html`);
   await page.waitForSelector("#use-guest", { timeout: 60_000 });

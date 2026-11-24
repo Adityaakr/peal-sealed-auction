@@ -5,6 +5,7 @@
  */
 import { createPublicClient, defineChain, getAddress, http, type Address, type Chain, type Hex, type PublicClient } from "viem";
 import { sealedAuctionAbi } from "../../../client/abi.ts";
+import { configureExplorer } from "./explorer.ts";
 import { mountWallet } from "./wallet/panel.ts";
 
 export interface AppConfig {
@@ -24,7 +25,7 @@ export interface AppConfig {
   /** PEAL-T demo faucet: visitors claim what they bid with in the demo auction. */
   faucet?: Address;
   committeeSetId?: Hex;
-  /** Committee cards to fall back on if the node pruned the MemberJoined events. */
+  /** A copy of the committee's cards, each used only if it matches the hash its member signed on chain. */
   committeeCards?: string;
   auction?: Address;
   /** The open auction visitors are pointed at (a buyback paid in faucet PEAL-T). */
@@ -71,6 +72,7 @@ export async function loadConfig(): Promise<AppConfig> {
 
 /** Mount the wallet drawer for this page's network. */
 export function startWallet(cfg: AppConfig): void {
+  configureExplorer(cfg.network === "testnet" ? cfg.rest : undefined);
   mountWallet({
     local: cfg.network === "local",
     chainId: cfg.cosmosChainId!,
@@ -105,6 +107,7 @@ export async function auctionSummary(client: PublicClient, auction: Address) {
     read<number>("state"),
     read<{
       totalSupply: bigint;
+      saleDecimals: number;
       reservePrice: bigint;
       tickSize: bigint;
       numTicks: number;

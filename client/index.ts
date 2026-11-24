@@ -3,6 +3,8 @@ export * from "./audit.ts";
 export * from "./bid.ts";
 export * from "./committee.ts";
 export * from "./constants.ts";
+export * from "./escrow.ts";
 export * from "./logs.ts";
 export * from "./plaintext.ts";
+export * from "./recorded.ts";
 export * from "./release.ts";

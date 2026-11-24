@@ -20,7 +20,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { carry, chainOf, netOnly, publicClientOf, startWallet, type AppConfig } from "./config.ts";
 import { h, hash, icon, mark } from "./ui.ts";
 import { walletButton } from "./wallet/panel.ts";
-import { act, openPanel, state as wallet, subscribe } from "./wallet/store.ts";
+import { act, closePanel, openPanel, state as wallet, subscribe } from "./wallet/store.ts";
 import type { Call } from "./wallet/guest.ts";
 
 export * from "./config.ts";
@@ -59,7 +59,8 @@ export type Actor = { kind: "guest"; address: Address } | { kind: "dev"; address
 
 /**
  * Send `calls` as the actor. A guest opens one window scoped to the calls'
- * contracts and logs each step in the wallet drawer; a dev account sends them in
+ * contracts and logs each step in the wallet drawer, which closes when they all
+ * succeeded and stays open on an error; a dev account sends them in
  * order (on the testnet inside a window it opened with the CLI).
  */
 export async function runCalls(cfg: AppConfig, actor: Actor, title: string, calls: Call[]): Promise<Hex[]> {
@@ -70,6 +71,7 @@ export async function runCalls(cfg: AppConfig, actor: Actor, title: string, call
   }
   const receipts = await act(title, calls);
   if (!receipts) throw new Error(wallet.error ?? `${title} did not complete`);
+  closePanel(); // the page shows the outcome; the drawer opened for the steps would cover it
   return receipts.map((r) => r.transactionHash);
 }
 

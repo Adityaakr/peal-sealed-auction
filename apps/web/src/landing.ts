@@ -107,7 +107,7 @@ function hero(): HTMLElement {
         h("h1.sa-display", "Every bid stays sealed until ", h("em", "two of three keys"), " meet."),
         h(
           "p.sa-hero-lead",
-          "Bids are encrypted in the bidder's browser. Each bid's key is split across a three-member committee, and each share is sealed with ML-KEM-1024. Nobody can open a bid before the chain closes bidding. After that, any two members release, with ML-DSA-87 signatures the contract checks itself, and every bid clears at one price.",
+          "Bids are encrypted in the bidder's browser. Each bid's key is split across a three-member committee, and each share is sealed with ML-KEM-1024. No single key holder can open a bid before the chain closes bidding. After that, any two members release, with ML-DSA-87 signatures the contract checks itself, and every bid clears at one price.",
         ),
         h("div.sa-ctas", h("a.sa-btn.sa-btn-brass", { href: appHref("bidder", cfg?.demoAuction), id: "hero-bid" }, "Place a sealed bid", icon("arrow")), tryBtn),
       ),
@@ -277,7 +277,7 @@ function anatomy(): HTMLElement {
         "dl.sa-facts",
         h("div", h("dt", "Bound to"), h("dd", "chain id, auction, bidder and the bidder's own counter, so nothing replays elsewhere")),
         h("div", h("dt", "Fixed at commit"), h("dd", "no reveal step: the bidder cannot back out after seeing others")),
-        h("div", h("dt", "Held in escrow"), h("dd", "the bid's worth plus a bond; a bid that opens to junk loses its bond")),
+        h("div", h("dt", "Held in escrow"), h("dd", "the bid's worth rounded up to a shared bucket, because escrow is public, plus a bond; what is not spent comes back, and a bid that opens to junk loses its bond")),
       ),
     ),
   );
@@ -334,7 +334,7 @@ function keys(): HTMLElement {
     h(
       "div.sa-wrap",
       head(
-        "04 · Why no one opens it early",
+        "04 · Why no single member opens it early",
         h("span", "Any two of three keys open every bid. ", h("em", "One opens nothing.")),
         h(
           "span",
@@ -371,7 +371,7 @@ function keys(): HTMLElement {
               ),
             ),
           ),
-          h("p.sa-source", "Set ", h("code", "0xd6da2884…0fe5"), ", registered with three ML-DSA-87 joins checked by pqcVerify. From ", h("a", { href: `${BLOB}/deployments/qorechain-diana.json`, ...ext }, "deployments/qorechain-diana.json"), "."),
+          h("p.sa-source", "In this demo one owner holds all three keys, as separate accounts: it shows the mechanism, not the independence. Set ", h("code", "0xd6da2884…0fe5"), ", registered with three ML-DSA-87 joins checked by pqcVerify. From ", h("a", { href: `${BLOB}/deployments/qorechain-diana.json`, ...ext }, "deployments/qorechain-diana.json"), "."),
         ),
         h(
           "div.sa-table-wrap",

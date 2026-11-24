@@ -8,7 +8,8 @@
 import { encodeFunctionData, hexToBytes, parseAbi, parseUnits, type Address } from "viem";
 import { pealTAbi, sealedAuctionAbi } from "../../../client/abi.ts";
 import { bidContext, sealBid } from "../../../client/bid.ts";
-import { readCommittee, resolveCommittee } from "../../../client/committee.ts";
+import { checkCommittee } from "../../../client/committee.ts";
+import { escrowChoice, escrowNeeded, type EscrowMode } from "../../../client/escrow.ts";
 import type { SealRecipient } from "@qorechain/qoreseal";
 import {
   $,
@@ -30,9 +31,10 @@ import {
   STATE_WORDS,
   type Actor,
 } from "./common.ts";
-import { amount, duration, h, icon } from "./ui.ts";
+import { explorerOn, EXPLORER_NOTE, txHash } from "./explorer.ts";
+import { amount, chip, duration, h, icon } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
-import { actWithMetaMask, buyOnAmm } from "./wallet/store.ts";
+import { actWithMetaMask, buyOnAmm, closePanel } from "./wallet/store.ts";
 
 const faucetAbi = parseAbi(["function claim(uint256 amount)", "function claimableBy(address who) view returns (uint256 amount, uint64 availableAt)"]);
 
@@ -126,6 +128,7 @@ async function main(): Promise<void> {
         if (actor?.kind !== "guest") throw new Error("the AMM step is for the guest account; a dev account uses npm run testnet -- fusd buy");
         const tx = await buyOnAmm(`Buy ${amt.value} ${quoteSym} on the AMM`, s.cfg.quoteToken, parseUnits(amt.value || "0", quoteDec));
         if (!tx) throw new Error("the AMM buy did not complete; see the wallet drawer");
+        closePanel();
         logLine(`bought ${amt.value} ${quoteSym} on the AMM, tx ${short(tx)}`, "ok");
         await showBalance();
       });
@@ -142,7 +145,7 @@ async function main(): Promise<void> {
     el(
       "p",
       { class: "muted small" },
-      "For each member: the ML-DSA-87 key from the chain (pqcKeyStatus), the ML-KEM-1024 key from REST checked against the hash the member signed, and the QoreSeal card checked against both. A lying REST proxy cannot slip in its own key.",
+      "For each member: the ML-DSA-87 key from the chain (pqcKeyStatus), the ML-KEM-1024 key from REST checked against the hash the member signed, and the QoreSeal card checked against the hash the member signed and against both keys. The cards ship with this page, so the check starts at once; a wrong one is refused and read from the chain instead. A lying REST proxy cannot slip in its own key.",
     ),
     commBtn,
     commOut,
@@ -150,13 +153,13 @@ async function main(): Promise<void> {
   app.append(comm);
   commBtn.onclick = () =>
     guard(commBtn, async () => {
-      // The check reads three keys from the chain and three from REST: give it a visible state.
-      commOut.replaceChildren(el("p", { class: "muted small" }, "Checking each member's keys on the chain and in the registry; this can take up to a minute…"));
-      const fallback = cfg.committeeCards ? await fetch(cfg.committeeCards).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined) : undefined;
-      let c: Awaited<ReturnType<typeof readCommittee>>;
+      // The check reads three keys from the chain and three from REST, and scans the chain's logs
+      // only if a bundled card is missing or wrong: give it a visible state.
+      commOut.replaceChildren(el("p", { class: "muted small" }, "Checking each member's keys on the chain and in the registry…"));
+      const bundled = cfg.committeeCards ? await fetch(cfg.committeeCards).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined) : undefined;
+      let c: Awaited<ReturnType<typeof checkCommittee>>["committee"];
       try {
-        c = await readCommittee(client, cfg.registry, s.cfg.committeeSetId, undefined, fallback);
-        recipients = await resolveCommittee(c, { client, rest: cfg.rest });
+        ({ committee: c, recipients } = await checkCommittee(client, cfg.registry, s.cfg.committeeSetId, { rest: cfg.rest, bundled }));
       } catch (err) {
         commOut.replaceChildren(el("p", { class: "bad small" }, "The check failed; see Activity below."));
         throw err;
@@ -166,6 +169,7 @@ async function main(): Promise<void> {
           el("div", { class: "ok member" }, icon("check"), el("span", {}, `Member ${m.index}`), el("span", { class: "mono" }, short(m.address, 6)), el("span", { class: "mono muted" }, `ML-KEM sha3 ${short(m.kemKeySha3, 6)}`)),
         ),
       );
+      if (c.refused.length) logLine(`bundled card of member ${c.refused.join(", ")} refused: it does not match the hash signed on chain; the cards were read from the chain`, "info");
       logLine(`committee ${short(c.setId, 6)}: all ${c.members.length} members verified`, "ok");
     });
 
@@ -178,8 +182,16 @@ async function main(): Promise<void> {
     const inv = p === 0n ? "∞" : (Number(10n ** BigInt(quoteDec)) / Number(p)).toPrecision(4);
     tick.append(el("option", { value: String(t) }, `at most ${fmt(p, quoteDec)} ${quoteSym} per ${saleSym}  (at least ${inv} ${saleSym} per ${quoteSym})`));
   }
+  const esc = el("select", { id: "escrow", class: "input" }) as HTMLSelectElement;
+  for (const [value, label] of [
+    ["bucket", "rounded up to a shared bucket (default)"],
+    ["wider", "rounded up one bucket further"],
+    ["cover-all", "the most any bid here can need"],
+    ["exact", "exactly quantity × limit"],
+  ]) esc.append(el("option", { value: value! }, label!));
   const need = el("div", { class: "need small", id: "need" }, "Enter a quantity to see what is held in escrow.");
   const sealBtn = el("button", { id: "seal-commit" }, "Seal in this browser and commit") as HTMLButtonElement;
+  const done = el("div", { id: "bid-done", class: "bid-done", tabindex: "-1", role: "status" });
   const out = el("div", { id: "sealed", class: "kv sealed" });
   form.append(
     el(
@@ -187,25 +199,44 @@ async function main(): Promise<void> {
       { class: "form-grid" },
       el("label", { class: "field" }, el("span", {}, `Quantity (${saleSym})`), qty),
       el("label", { class: "field" }, el("span", {}, "Your price limit"), tick),
+      el("label", { class: "field wide" }, el("span", {}, "Escrow (public)"), esc),
     ),
     need,
     el("div", { class: "row" }, sealBtn),
+    done,
     out,
   );
   app.append(form, activityCard());
 
-  const preview = async () => {
+  // Computed here from the auction's terms, with the contract's own rule, so what is
+  // shown always belongs to what is typed (a slow chain read cannot overwrite it).
+  const most = escrowNeeded(s.cfg, s.cfg.totalSupply, s.cfg.numTicks - 1);
+  const escrowOf = (needed: bigint) => escrowChoice(esc.value as EscrowMode, needed, most, quoteDec);
+  const parsedQty = () => {
     try {
-      const q = parseUnits(qty.value || "0", saleDec);
-      if (q === 0n) return void (need.textContent = "Enter a quantity to see what is held in escrow.");
-      const escrow = (await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "escrowFor", args: [q, Number(tick.value)] })) as bigint;
-      need.textContent = `Held until settlement: ${fmt(escrow, quoteDec)} ${quoteSym} escrow + ${fmt(s.cfg.bidBond, quoteDec)} ${quoteSym} bond. Whatever you do not pay comes back.`;
+      return parseUnits(qty.value || "0", saleDec);
     } catch {
-      need.textContent = "";
+      return 0n;
     }
   };
-  qty.addEventListener("input", () => void preview());
-  tick.addEventListener("change", () => void preview());
+  const preview = () => {
+    const q = parsedQty();
+    if (q === 0n) return void (need.textContent = "Enter a quantity to see what is held in escrow.");
+    const least = escrowNeeded(s.cfg, q, Number(tick.value));
+    const escrow = escrowOf(least);
+    need.replaceChildren(
+      h("div", `Held until settlement: ${fmt(escrow, quoteDec)} ${quoteSym} escrow + ${fmt(s.cfg.bidBond, quoteDec)} ${quoteSym} bond. Whatever you do not pay comes back.`),
+      h(
+        "div.muted",
+        esc.value === "exact"
+          ? `The escrow is public. Exactly ${fmt(least, quoteDec)} tells anyone your quantity × limit, rounded up to the token's last decimal: in whole ${saleSym}, at most ${s.cfg.numTicks} bids fit it, one per price step.`
+          : `The escrow is public, so it is rounded up: your bid needs ${fmt(least, quoteDec)}, and others see only ${fmt(escrow, quoteDec)}, an upper bound on quantity × limit.`,
+      ),
+    );
+  };
+  qty.addEventListener("input", preview);
+  tick.addEventListener("change", preview);
+  esc.addEventListener("change", preview);
 
   // MetaMask, through the guest account as a linked key under a spending rule (client/linked-key.ts).
   const sealMmBtn = el("button", { id: "seal-commit-metamask", class: "secondary" }, "Seal, and sign in MetaMask") as HTMLButtonElement;
@@ -215,7 +246,7 @@ async function main(): Promise<void> {
       el(
         "p",
         { class: "small muted" },
-        "With MetaMask connected in the wallet, your guest account links it once under an on-chain spending rule. The rule allows only this auction, its token and the demo faucet, capped per call and per day. MetaMask then signs each call, and the guest relays it. A stolen MetaMask key can do nothing else.",
+        "With MetaMask connected in the wallet, your guest account links it once under an on-chain spending rule. The rule allows only this auction, its token and the demo faucet, capped per call and per day. MetaMask then signs each call, and the guest relays it. A stolen MetaMask key could spend that token within the caps, and nothing else.",
       ),
     );
   }
@@ -227,8 +258,11 @@ async function main(): Promise<void> {
       const quantity = parseUnits(qty.value || "0", saleDec);
       if (quantity === 0n) throw new Error("enter a quantity");
       const t = Number(tick.value);
+      // Read the choice once: the fields can change while the bid is being sent.
+      const mode = esc.value as EscrowMode;
       const ctx = await bidContext(client, auction, actor.address, quantity, t);
-      const needed = ctx.escrow + ctx.bond;
+      const escrow = escrowChoice(mode, ctx.escrow, most, quoteDec);
+      const needed = escrow + ctx.bond;
       const bal = await client.readContract({ address: s.cfg.quoteToken, abi: pealTAbi, functionName: "balanceOf", args: [actor.address] });
       const calls: Call[] = [];
       if (bal < needed) {
@@ -239,7 +273,7 @@ async function main(): Promise<void> {
             : 0n;
         if (bal + canClaim < needed)
           throw new Error(
-            `needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}${s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase() && cfg.network === "testnet" ? `: buy the ${fmt(needed - bal, quoteDec)} ${quoteSym} shortfall on the AMM above` : ""}`,
+            `needs ${fmt(needed, quoteDec)} ${quoteSym} (escrow + bond); this account holds ${fmt(bal, quoteDec)}${mode === "exact" || bal + canClaim < ctx.escrow + ctx.bond ? "" : `, enough for the exact escrow, which publishes quantity × limit (choose it under Escrow if you accept that)`}${s.cfg.quoteToken.toLowerCase() === cfg.fusd.toLowerCase() && cfg.network === "testnet" ? `: buy the ${fmt(needed - bal, quoteDec)} ${quoteSym} shortfall on the AMM above` : ""}`,
           );
         calls.push({ to: cfg.faucet!, data: encodeFunctionData({ abi: faucetAbi, functionName: "claim", args: [canClaim] }), label: `Claim ${amount(canClaim, quoteDec)} ${quoteSym} from the demo faucet` });
         logLine(`not enough ${quoteSym}: the faucet claim joins the same ${viaMetaMask ? "relay" : "window"}`, "info");
@@ -248,6 +282,7 @@ async function main(): Promise<void> {
       const c = sealBid({ chainId: BigInt(cfg.chainId), auction, bidder: actor.address, seq: ctx.seq, quantity, tick: t, recipients, threshold: s.threshold });
       const ms = Math.round(performance.now() - t0);
       out.replaceChildren();
+      done.replaceChildren();
       const show = (k: string, v: string) => out.append(el("div", {}, k), el("div", { class: "mono" }, v));
       show("ciphertext", c.ct);
       show("key hash", c.keyHash);
@@ -259,7 +294,7 @@ async function main(): Promise<void> {
         { to: s.cfg.quoteToken, data: encodeFunctionData({ abi: pealTAbi, functionName: "approve", args: [auction, needed] }), label: `Approve ${fmt(needed, quoteDec)} ${quoteSym} for the auction` },
         {
           to: auction,
-          data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "commitBid", args: [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, ctx.escrow] }),
+          data: encodeFunctionData({ abi: sealedAuctionAbi, functionName: "commitBid", args: [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, escrow] }),
           label: "Commit the sealed bid",
         },
       );
@@ -272,18 +307,27 @@ async function main(): Promise<void> {
           calls,
         );
         if (!tx) throw new Error("the MetaMask bid did not complete; see the wallet drawer");
+        closePanel();
         hash = tx;
       } else {
         const hashes = await runCalls(cfg, actor, "Place a sealed bid", calls);
         hash = hashes[hashes.length - 1]!;
       }
-      show("commit tx", hash);
-      logLine(`bid committed: escrow ${fmt(ctx.escrow, quoteDec)} + bond ${fmt(ctx.bond, quoteDec)} ${quoteSym}, tx ${short(hash)}`, "ok");
+      out.append(el("div", {}, "commit tx"), el("div", { class: "mono" }, txHash(hash, "commit transaction"), ...(explorerOn() ? [el("span", { class: "small muted tx-note" }, EXPLORER_NOTE)] : [])));
+      logLine(`bid committed: escrow ${fmt(escrow, quoteDec)} + bond ${fmt(ctx.bond, quoteDec)} ${quoteSym}, tx ${short(hash)}`, "ok");
       out.append(
         el("div", {}, "next"),
         el("div", {}, "After the close the committee releases and the contract opens every bid. ", el("a", { href: `./results.html${carry(cfg)}` }, "Watch the results"), "."),
       );
-            await showBalance();
+      done.replaceChildren(
+        chip("Bid committed, sealed", "ok"),
+        el("span", {}, ` Your escrow on chain is ${fmt(escrow, quoteDec)} ${quoteSym}; the bid itself is the ciphertext below. `),
+        el("a", { class: "btn btn-small btn-primary", href: `./results.html${carry(cfg)}`, id: "watch-results" }, "Watch the results", icon("arrow")),
+      );
+      // The drawer has closed: put the outcome in view and under the keyboard.
+      done.focus({ preventScroll: true });
+      done.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      await showBalance();
     });
   sealBtn.onclick = () => commitWith(sealBtn, false);
   sealMmBtn.onclick = () => commitWith(sealMmBtn, true);

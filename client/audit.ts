@@ -34,6 +34,7 @@ import {
 import { sealedAuctionAbi } from "./abi.ts";
 import { collectLogs } from "./logs.ts";
 import { decodePlaintext } from "./plaintext.ts";
+import { recordedReleases } from "./recorded.ts";
 
 const PQ_AUTH_DOMAIN = keccak256(toBytes("qore-pq-kit.PqAuth.v1"));
 const RELEASE_ACTION = keccak256(toBytes("SealedAuction.release"));
@@ -159,7 +160,7 @@ export async function auditAuction(client: PublicClient, auction: Address): Prom
       client,
       (from, to) => client.getContractEvents({ address: auction, abi: sealedAuctionAbi, eventName: "ReleaseSubmitted", fromBlock: from, toBlock: to, strict: true }),
       releaseCount,
-      { maxChunks: Number(age / 9_999n) + 2 },
+      { maxChunks: Number(age / 9_999n) + 2, recorded: recordedReleases(chainId, auction) },
     );
   } catch {
     // the node no longer has these blocks; the releases are reported as not checkable

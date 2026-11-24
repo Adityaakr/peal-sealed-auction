@@ -7,6 +7,9 @@
  * they go backwards from the latest block until the expected number of events
  * is found (the contracts say how many there are: `bidCount`, the set size).
  *
+ * When the events' blocks are already recorded (`recorded.ts`), that range is read
+ * first, and the scan runs only if it does not hold every event.
+ *
  * The public node also prunes old blocks ("height N is not available, lowest
  * height is M", about two hours of history on 2026-11-16), so a backwards scan
  * stops at the lowest height the node still has.
@@ -19,8 +22,12 @@ export async function collectLogs<T>(
   client: PublicClient,
   read: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>,
   want: number,
-  opts: { fromBlock?: bigint; maxChunks?: number } = {},
+  opts: { fromBlock?: bigint; maxChunks?: number; recorded?: { from: bigint; to: bigint } } = {},
 ): Promise<T[]> {
+  if (opts.recorded) {
+    const found = await read(opts.recorded.from, opts.recorded.to).catch(() => []);
+    if (found.length >= want) return found;
+  }
   // No cache: viem otherwise reuses the block number for its polling interval,
   // and a read right after a transaction would stop before that transaction's block.
   const latest = await client.getBlockNumber({ cacheTime: 0 });

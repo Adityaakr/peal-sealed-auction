@@ -27,7 +27,8 @@ import {
   STATE_WORDS,
   type Actor,
 } from "./common.ts";
-import { chip, duration, h, hash } from "./ui.ts";
+import { explorerOn, EXPLORER_NOTE, txHash } from "./explorer.ts";
+import { amount, chip, duration, h } from "./ui.ts";
 import type { Call } from "./wallet/guest.ts";
 
 const STATUS = ["sealed", "opened", "excluded", "unopenable"];
@@ -53,7 +54,7 @@ async function main(): Promise<void> {
     client.readContract({ address: auction, abi: sealedAuctionAbi, functionName, args } as never) as Promise<T>;
 
   const summaryCard = el("div", { id: "summary" });
-  const bidsCard = el("div", { class: "card flush" }, el("div", { class: "card-pad" }, el("h2", {}, "Bids")), el("div", { class: "table-wrap", id: "bids" }));
+  const bidsCard = el("div", { class: "card flush" }, el("div", { class: "card-pad" }, el("h2", {}, "Bids"), el("p", { class: "muted small" }, "Escrow is public: the bid page rounds it up to a shared bucket unless the bidder chooses the exact amount, and what is not spent is refunded.")), el("div", { class: "table-wrap", id: "bids" }));
   app.replaceChildren(
     pageHead("Results", "Auction results", "Every bid as the contract opened it, the clearing price, and the steps anyone may run. Funds always go to the bidder or the issuer."),
     summaryCard,
@@ -115,7 +116,23 @@ async function main(): Promise<void> {
   bAudit.onclick = () =>
     guard(bAudit, async () => {
       auditOut.replaceChildren(el("p", { class: "muted small" }, "Reading the releases and the stored shares…"));
-      const r = await auditAuction(client, auction);
+      // Token names and decimals only dress the report: if they cannot be read, it shows base units.
+      const terms = async () => {
+        const s = await auctionSummary(client, auction);
+        const token = (t: Address, functionName: "decimals" | "symbol") => client.readContract({ address: t, abi: pealTAbi, functionName });
+        const [sd, qd, ss, qs] = await Promise.all([
+          token(s.cfg.saleToken, "decimals").then(Number),
+          token(s.cfg.quoteToken, "decimals").then(Number),
+          token(s.cfg.saleToken, "symbol"),
+          token(s.cfg.quoteToken, "symbol"),
+        ]);
+        return { s, sd, qd, ss, qs };
+      };
+      const [r, t] = await Promise.all([auditAuction(client, auction), terms().catch(() => undefined)]);
+      const inWords = (p: { quantity: bigint; tick: number }) =>
+        t
+          ? `${amount(p.quantity, t.sd, t.sd)} ${t.ss} at ≤ ${amount(t.s.cfg.reservePrice + BigInt(p.tick) * t.s.cfg.tickSize, t.qd, t.qd)} ${t.qs}`
+          : `${p.quantity} base units at tick ${p.tick}`;
       const releaseRows = r.releases.map((x) =>
         el(
           "tr",
@@ -123,7 +140,7 @@ async function main(): Promise<void> {
           el("td", {}, `member ${x.memberIndex}`),
           el("td", { class: "mono" }, short(x.member, 6)),
           el("td", {}, x.signatureOk === true ? chip("signature verified here", "ok") : x.signatureOk === false ? chip("signature does not verify", "bad") : chip(x.note ?? "not checked", "plain")),
-          el("td", {}, x.txHash ? hash(x.txHash, { label: "release transaction" }) : ""),
+          el("td", {}, x.txHash ? txHash(x.txHash, "release transaction") : ""),
         ),
       );
       const bidRows = r.bids.map((b) =>
@@ -131,14 +148,15 @@ async function main(): Promise<void> {
           "tr",
           {},
           el("td", {}, `bid ${b.bidId}`),
-          el("td", { class: "mono" }, b.reopened ? `${b.reopened.quantity} at tick ${b.reopened.tick}` : "not reopened"),
+          el("td", { class: "mono" }, b.reopened ? inWords(b.reopened) : "not reopened"),
           el("td", {}, b.agrees === true ? chip("agrees with the contract", "ok") : b.agrees === false ? chip("disagrees with the contract", "bad") : chip(b.note ?? "undecided", "wait")),
         ),
       );
       auditOut.replaceChildren(
         el("p", {}, r.ok ? chip("audit passed", "ok") : chip("audit did not pass", "bad")),
         el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, el("tr", {}, ...["Release", "Member", "ML-DSA-87", "Transaction"].map((x) => el("th", {}, x)))), el("tbody", {}, ...releaseRows))),
-        el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, el("tr", {}, ...["Bid", "Reopened here (base units)", "Verdict"].map((x) => el("th", {}, x)))), el("tbody", {}, ...bidRows))),
+        el("div", { class: "table-wrap" }, el("table", {}, el("thead", {}, el("tr", {}, ...["Bid", "Reopened here", "Verdict"].map((x) => el("th", {}, x)))), el("tbody", {}, ...bidRows))),
+        ...(explorerOn() ? [el("p", { class: "small muted" }, EXPLORER_NOTE)] : []),
       );
       logLine(r.ok ? "audit passed: releases verified and bids reopened in this browser" : "audit did not pass", r.ok ? "ok" : "bad");
     });
@@ -215,7 +233,7 @@ async function main(): Promise<void> {
     summaryCard.replaceChildren(
       h(
         "div.grid.grid-4.tiles",
-        tile("State", el("span", { id: "state" }, s.state), STATE_WORDS[s.state]!),
+        tile("State", el("span", { id: "state" }, s.state === "CommitOpen" && now >= s.cfg.endTime ? "Bidding has ended" : STATE_WORDS[s.state]!), el("span", {}, "in the contract: ", el("code", {}, s.state))),
         tile("Releases", h("span", { id: "releases" }, releases, ` ${released} of ${s.members.length}`), `${s.threshold} needed to open every bid`),
         tile("Bids", String(s.bidCount), `${fmt(s.cfg.totalSupply, sd)} ${ss} offered`),
         priceTile,
