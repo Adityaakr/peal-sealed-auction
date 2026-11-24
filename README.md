@@ -2,7 +2,7 @@
 
 **A uniform-price sealed-bid auction on QoreChain whose bids no single key holder can open before the close.**
 
-> **On the jury? Start at <https://peal-sealed-auction.vercel.app/judge>.** No wallet, no account, no funds. It reads the two settled auctions live, and one button runs 19 attacks and 8 controls against the deployed testnet contracts (forged, early, replayed and edited releases, one member alone, a bid to the wrong committee) and shows the contract's own error names. It also shows one thing the contract does accept. The same from a terminal: `npm run judge:live`.
+> **On the jury? Start at <https://peal-sealed-auction.vercel.app/judge>.** No wallet, no account, no funds. It reads the two settled auctions live, and one button runs 19 attacks and 8 controls against the deployed testnet contracts (forged, early, replayed and edited releases, one member alone, a bid to the wrong committee) and shows the contract's own error names. Two of them are checks in your browser, and are marked so. It also shows one thing the contract does accept. The same from a terminal: `npm run judge:live`.
 
 QoreChain "Build Before Q-Day" Developer Fest · category **Encrypted Apps** · live on the QoreChain testnet (`qorechain-diana`) · Apache-2.0
 
