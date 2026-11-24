@@ -39,7 +39,7 @@ As a result:
 | Criterion | Where to check it |
 |---|---|
 | Works as described | [Try it in 5 minutes](#try-it-in-5-minutes) on the live site; two settled auctions that the results page re-verifies in your browser; `npm run e2e:local` and `npm run web:smoke` run a whole auction locally |
-| QoreChain tech, in the repo and on chain | [The category's requirements, with evidence](#the-categorys-requirements-with-evidence); every kit and network feature with its evidence in [`docs/kits.md`](docs/kits.md); `npm run evidence` re-checks every recorded transaction through the `qore` CLI (on 23 November: 30 of 30 native transactions with a verified ML-DSA-87 layer, 67 of 67 EVM transactions succeeded) |
+| QoreChain tech, in the repo and on chain | [The category's requirements, with evidence](#the-categorys-requirements-with-evidence); every kit and network feature with its evidence in [`docs/kits.md`](docs/kits.md); `npm run evidence` re-checks every recorded transaction through the `qore` CLI (on 24 November: 33 of 33 native transactions with a verified ML-DSA-87 layer, 73 of 73 EVM transactions succeeded) |
 | Post-quantum correctness and security | [`docs/PQC.md`](docs/PQC.md): every `pqcVerify` and `pqcKeyStatus` call, what it protects, its tests and a testnet transaction; [`THREAT_MODEL.md`](THREAT_MODEL.md): every attack, what stops it and the test |
 | Originality | Threshold-shared bid keys under ML-KEM, ML-DSA-checked releases, and decryption by the contract itself, instead of QoreChain's one-auction-key recipe ([In one minute](#in-one-minute)); what came from the author's earlier project is listed in [Prior work](#prior-work) |
 | Clarity, UX and documentation | the landing page's six diagrams; [`docs/DEMO.md`](docs/DEMO.md); [Honest limits](#honest-limits) |
@@ -49,20 +49,29 @@ As a result:
 You need a browser and about 1 test QOR. Nothing to install.
 
 1. Open <https://peal-sealed-auction.vercel.app> and press **Try it with a guest account**. *Create a guest account* makes a testnet account in your browser.
-2. Fund it with about 1 QOR: the drawer's **Dashboard faucet** button (sign in with your QoreChain account), or one transfer approved in QoreX. Press **Check balance**.
-3. Press **Place a sealed bid**. On the bid page, **Check every member's keys** shows three green checks: each member's ML-DSA-87 key from the chain, its ML-KEM-1024 key from the registry, and its signed card.
-4. Enter a quantity and a price limit, then **Seal in this browser and commit**. The page claims 1,000 PEAL-T from the demo faucet if you have none, registers your ML-DSA-87 key, opens one EVM window scoped to the three contracts it calls, and commits. It shows your ciphertext and the three 1,752-byte envelopes.
+2. Fund it with about 1 QOR: press **Copy qor1 address** in the drawer, then **Dashboard faucet** (sign in with your QoreChain account; its form takes the `qor1…` address and rejects a `0x…` one), or approve one transfer in QoreX. Press **Check balance**.
+3. Press **Place a sealed bid**. On the bid page, **Check every member's keys** shows three green checks in a couple of seconds: each member's ML-DSA-87 key from the chain, its ML-KEM-1024 key from the registry, and its signed card.
+4. Enter a quantity and a price limit, then **Seal in this browser and commit**. The page claims 1,000 PEAL-T from the demo faucet if you have none, registers your ML-DSA-87 key, opens one EVM window scoped to the three contracts it calls, and commits. The drawer closes when it is done, and the page shows your ciphertext, the three 1,752-byte envelopes and explorer links. Your escrow is public, so it is rounded up to a shared bucket; what you do not pay comes back.
 5. **Watch the results**: your bid is listed as yours, still sealed. No single committee member can read it, and the contract accepts releases only after bidding closes on 17 December. Two members together could combine their shares off chain earlier, so confidentiality assumes fewer than two collude; in this demo one owner holds all three member keys (see [Honest limits](#honest-limits) and [`THREAT_MODEL.md`](THREAT_MODEL.md)).
 
-To see what happens after the close, open a settled auction on the results page and press **Check it in this browser**. It verifies every release and reopens every bid itself, reading the chain's logs for about half a minute:
+To see what happens after the close, open a settled auction on the results page and press **Check it in this browser**. It verifies every release and reopens every bid itself, in a few seconds:
 - [the 16 November run](https://peal-sealed-auction.vercel.app/results.html?auction=0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124): two bids, member 3 offline, a forged release refused;
 - [the first open demo](https://peal-sealed-auction.vercel.app/results.html?auction=0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4): three bids from visitors' guest accounts, settled on 23 November.
 
-The README's steps were run again as a stranger on 23 November 2026 (UTC): a fresh browser profile, a new guest, the production build with Vercel's headers and rewrites. All three members checked, the bid sealed and committed for 0.36 QOR, and the bid was listed as "you, sealed" on the results page (`strangerTest` in the file below). Before that, a first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).
+The steps were last run on 24 November 2026 (UTC), on the production build with Vercel's headers and rewrites, by two new guests made in the page (desktop and phone viewports). Each committed a sealed bid with a bucketed escrow (bids 5 and 6: `0xd67bd2ad…7326`, `0x9acab34e…f07a`) for 0.36 QOR, and still saw it as "you, sealed" after a reload (`fixesTest` in the file below). The two slow checks, measured in headless Chromium on one machine and connection against the testnet, before on the live site and after on this build:
+
+| Check | Before (n) | After (n) |
+|---|---|---|
+| Committee check, 3 members verified | 33 to 63 s (4), growing with every block | 1.4 to 2.0 s (10) |
+| Audit of the 16 November run | 31 to 33 s (2), growing with every block | 3.1 to 3.4 s (5) |
+| Audit of the first open demo | 6.4 to 6.5 s (2), growing with every block | 3.5 to 4.1 s (5) |
+| Committee check with a wrong bundled card: refused, read from the chain | | 30 to 31 s (2) |
+
+The README's steps were also run as a stranger on 23 November 2026 (UTC): a fresh browser profile, a new guest, the production build with Vercel's headers and rewrites. All three members checked, the bid sealed and committed for 0.36 QOR, and the bid was listed as "you, sealed" on the results page (`strangerTest` in the file below). Before that, a first-time visitor's path was run end to end on 21 November 2026 through the production build with Vercel's headers and rewrites, on a desktop and a phone viewport: a guest created in the page, funded, sent straight to the bid page with no PEAL-T, and committed a sealed bid (faucet claim, approve and `commitBid` in one scoped window) for 0.36 QOR. Every hash is in [`deployments/open-demo-0x53537D…5646.json`](deployments/open-demo-0x53537D8510AD0567F6E44613257Ae7b513395646.json).
 
 ## What the site does
 
-The web app opens on a landing page in this product's own identity, the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)). It shows the open demo auction's sealed slots with their real ciphertexts. Six diagrams answer a visitor's questions in order: the problem, how a bid is sealed, when a bid can be read, why no one opens it early, the live reveal of the testnet run, and the category's requirements with their evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x53537D8510AD0567F6E44613257Ae7b513395646`: 50 fUSD for PEAL-T, bidding until 17 December 2026 00:00 UTC, so through judging and the 16 December demo show):
+The web app opens on a landing page in this product's own identity, the sealed envelope ([`apps/web/DESIGN.md`](apps/web/DESIGN.md)). It shows the open demo auction's sealed slots with their real ciphertexts. Six diagrams answer a visitor's questions in order: the problem, how a bid is sealed, when a bid can be read, why no single member opens it early, the live reveal of the testnet run, and the category's requirements with their evidence. From there a visitor can place a real sealed bid in the **open demo auction** (`0x53537D8510AD0567F6E44613257Ae7b513395646`: 50 fUSD for PEAL-T, bidding until 17 December 2026 00:00 UTC, so through judging and the 16 December demo show):
 
 1. **Make a guest account.** *Connect* opens a wallet drawer. A guest account is a fresh testnet key pair made in the browser (secp256k1 and ML-DSA-87, derived by `@qorechain/sdk` from a new 24-word phrase). It lives only in that browser's storage, and it can be backed up and forgotten.
 2. **Fund it** with about 1 QOR from the [QoreChain dashboard faucet](https://dashboard.qorechain.io/faucet), or in one transfer approved in QoreX.
@@ -175,7 +184,7 @@ Auction `0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4` bought back up to 50 fUSD f
 - member 3 released from its own daemon, so `finalize` could run before the release deadline;
 - a fresh guest account on the results page pressed **Finalize** and **Pay out every bid and the issuer**.
 
-It was undersubscribed (12 of 50 fUSD), so it cleared at the reserve, 0.50 PEAL-T per fUSD, and the unsold 38 fUSD went back to the issuer. `npm run testnet -- audit 0x9A98…c7B4` verifies all three ML-DSA-87 releases with `@qorechain/pqc` and reopens all three bids to what the contract recorded. Every hash is under `settlement` in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
+It was undersubscribed (12 of 50 fUSD), so it cleared at the reserve, 0.50 PEAL-T per fUSD, and the unsold 38 fUSD went back to the issuer. `npm run testnet -- audit 0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4` verifies all three ML-DSA-87 releases with `@qorechain/pqc` and reopens all three bids to what the contract recorded. Every hash is under `settlement` in `deployments/open-demo-0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4.json`.
 
 ## Try it
 
@@ -293,6 +302,7 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 - **Releases are run by the owner after the close.** Members release from their own committee page or with `npm run committee`, not from the hosted site's guest account. The open demo auction is settled with `npm run testnet -- settle 0x53537D…5646` after 17 December.
 - **A visitor needs about 1 test QOR first.** The dashboard faucet asks the visitor to sign in, and QoreX can fund a guest in one transfer. The site has no faucet of its own for QOR, only for PEAL-T.
 - **QoreX cannot send EVM transactions for pages yet**, so it funds the guest account rather than bidding itself; MetaMask bids only through the guest's spending rule.
+- **Escrow is public, and it bounds the bid.** Every bid is backed by a visible token transfer of at least quantity × limit. The page rounds it up to a bucket by default and the remainder is refunded. On the open demo's terms that leaves an observer 71 to 117 of the 400 possible whole-fUSD bids, where the exact escrow used before 24 November left 1 to 6. It still gives an upper bound on quantity × limit, and the bidder's address, timing and number of bids are public too. What leaks, and how it was measured: [`THREAT_MODEL.md`](THREAT_MODEL.md#residual-risks-stated-plainly).
 - **Bidder privacy ends at the clearing.** Bids are sealed until the close; after the opening every bid is public on chain, as in any sealed-bid auction that settles on chain.
 - **QoreSeal is version 0.1.0**, published as a draft pending an external review.
 - **The open demo takes at most 32 bids**, so settlement stays inside one window per chunk of bids; the landing page draws the first 20 slots.

@@ -82,7 +82,7 @@ export interface Call {
   label: string;
 }
 
-export type Log = (line: string) => void;
+export type Log = (line: string, tx?: string) => void;
 
 function storage(): Storage | undefined {
   try {
@@ -220,7 +220,7 @@ export async function registerKey(acc: UnifiedAccount, log: Log): Promise<void> 
   const proof = s.signProofOfPossession({ chainId: n.chainId, account: acc.cosmos, keypair: acc.pqc });
   const msg = s.buildRegisterPqcKeyMsg(acc.cosmos, { pqcKeypair: acc.pqc, proofOfPossession: proof });
   const tx = await broadcast(acc, [msg], "classical");
-  log(`Key registered (tx ${tx.slice(0, 10)}…).`);
+  log(`Key registered (tx ${tx.slice(0, 10)}…).`, tx);
 }
 
 /**
@@ -241,7 +241,7 @@ export async function buyOnAmm(acc: UnifiedAccount, erc20: Address, want: bigint
   if (st.qor < q.amountIn + 400_000n) throw new Error(`Buying needs about ${Number(q.amountIn + 400_000n) / 1e6} QOR; this account holds ${Number(st.qor) / 1e6}.`);
   log(`Buying on the AMM (pool ${pool.id}): at most ${Number(q.amountIn) / 1e6} QOR in, swap and convert in one transaction…`);
   const tx = await broadcast(acc, amm.buyMessages(acc.cosmos, acc.evm as Address, q), "hybrid", amm.ammRegistry());
-  log(`Bought and converted (tx ${tx.slice(0, 10)}…).`);
+  log(`Bought and converted (tx ${tx.slice(0, 10)}…).`, tx);
   return { amountIn: q.amountIn, tx };
 }
 
@@ -272,7 +272,7 @@ export async function runWithMetaMask(
     log(`Linking MetaMask ${mm.address.slice(0, 10)}… to this account: it may claim from the demo faucet, approve the auction's token and bid in this auction only, capped per call and per day, for 24 hours. Confirm the link message in MetaMask…`);
     const msgs = await lk.linkMetaMaskMsgs({ provider: mm.provider, address: mm.address, owner: acc.cosmos, chainId: n.chainId, rule: want, expiryUnix: BigInt(Math.floor(Date.now() / 1000) + 24 * 3600) });
     const tx = await broadcast(acc, msgs, "hybrid");
-    log(`MetaMask linked for 24 hours (tx ${tx.slice(0, 10)}…).`);
+    log(`MetaMask linked for 24 hours (tx ${tx.slice(0, 10)}…).`, tx);
   }
   log(`Sign ${calls.length} call${calls.length > 1 ? "s" : ""} in MetaMask (one prompt each)…`);
   const signed = await lk.metaMaskCalls({
@@ -313,9 +313,10 @@ export async function run(acc: UnifiedAccount, calls: Call[], log: Log): Promise
     const targets = [...new Set(calls.map((c) => c.to.toLowerCase()))];
     const perTx = evmWindowCost({ gas: GAS_CAP, maxFeePerGas: MAX_FEE_PER_GAS, value: 0n });
     log(`Opening a window for ${calls.length} transaction${calls.length > 1 ? "s" : ""}, scoped to ${targets.length} contract${targets.length > 1 ? "s" : ""}…`);
-    await broadcast(acc, [
+    const opened = await broadcast(acc, [
       s.openEvmWindowMsg({ sender: acc.cosmos, blocks: 120, maxTxs: calls.length, maxValue: perTx * BigInt(calls.length), allowedTargets: targets }),
     ]);
+    log(`Window open (tx ${opened.slice(0, 10)}…).`, opened);
   }
   const out: TransactionReceipt[] = [];
   try {
@@ -336,7 +337,7 @@ export async function run(acc: UnifiedAccount, calls: Call[], log: Log): Promise
       const r = await pub.waitForTransactionReceipt({ hash, timeout: 180_000 });
       if (r.status !== "success") throw new Error(`${c.label} reverted (tx ${hash})`);
       out.push(r);
-      log(`${c.label}: done (tx ${hash.slice(0, 10)}…).`);
+      log(`${c.label}: done (tx ${hash.slice(0, 10)}…).`, hash);
     }
   } finally {
     if (!n.local && out.length < calls.length) {

@@ -25,7 +25,7 @@ Each section answers one question a visitor has, and each diagram answers it vis
 | 01 The problem | Why not encrypt to one auction key? | One key and its holder, against a split key per bid |
 | 02 How a bid is sealed | What exactly goes on chain? | The 32-byte plaintext, ct, K and its shares, `commitBid`'s fields with sizes, the three envelopes |
 | 03 When a bid can be read | Who can read my bid, and when? | The phases on a time line, and a matrix of readers per phase, with the trust assumption |
-| 04 Why no one opens it early | What does the chain check, and what is refused? | Releases through `pqcVerify` to K and `openBids`; the committee and the refusals as tables |
+| 04 Why no single member opens it early | What does the chain check, and what is refused? | Releases through `pqcVerify` to K and `openBids`; the committee and the refusals as tables |
 | 05 Live proof: the reveal | Did it actually work? | The testnet run's two ciphertexts opened, the demand against the supply, the price, every transaction |
 | 06 Requirements | Does it meet the category? | A table, each row with a transaction or a test |
 | 07 Try it | Can I do it myself? | A checklist with live state and real buttons |

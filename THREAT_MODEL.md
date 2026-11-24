@@ -29,6 +29,7 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | One member reads bids early | A share alone is a uniformly random field element | same; the committee page shows a member only its own shares |
 | Store ciphertexts now, decrypt with a quantum computer later | The shares are under ML-KEM-1024 (hybrid with X25519); the bid is under a 256-bit keccak keystream of K. Both stay sound against known quantum attacks (Grover leaves 128-bit security) | design |
 | A REST proxy substitutes a member's ML-KEM key | Bidders accept a key only if its SHA3-256 equals the hash the member signed into the registry with ML-DSA-87; the card must match its hash and verify against both keys | `e2e-local`: a lying proxy is caught; `CommitteeRegistry` join tests |
+| The page ships wrong committee cards (a swapped key, another account's card, one that rewrites its own hashes) | A bundled card is used only if its hash equals the one the member signed into the registry, read from the chain; otherwise it is refused and the card is read from the `MemberJoined` events. Every card then goes through the same `verifyMember` checks, wherever it came from | `test-ts/committee.test.ts`; `e2e-local`; production build against the testnet, 24 November: two kinds of wrong card refused |
 | Register a committee member who did not consent | Each join is an ML-DSA-87 signature by that account's registered key (with proven possession), checked by `pqcVerify` and bound to the exact set | 16 registry tests; testnet `registerSet` `0x470ce18a…b593` |
 | Forge a release | `pqcVerify` against the member's key from `pqcKeyStatus`; the signed message binds chain id, auction, member, the bid count, every share and the invalid bitmap | `test_releaseSignedByNonMemberRefused`, `…AnotherMember…`, `…ForAnotherAuction…`; testnet: forged release refused by the live `pqcVerify` |
 | Replay a release, or release twice | One release per member; the signature binds this auction | `test_releaseReplayRefused` |
@@ -92,7 +93,20 @@ QoreScan is an inventory aid, not a certification.
 
 - **t colluding members can read bids early,** or withhold a chosen bid. If the remaining member also released, that bid then loses its bond.
 - **A bidder colluding with one member gets a delayed decision** on whether its bid opens. A bidder can deal shares where only some pairs rebuild K, so whether the bid opens depends on which members release. The plaintext cannot change: any matching pair gives the committed K. Stretch fix: commit-then-reveal releases.
-- **Escrow amounts are public** and bound each bid's value from above. Bidders may over-escrow; the excess is refunded.
+- **Escrow amounts are public** and bound each bid's value from above. The contract needs at least quantity × limit and refunds what is not spent, so the bid page rounds the escrow up to a bucket by default (`client/escrow.ts`). The buckets are 10, 25, 50, 100, 250, 500, … up to half of what the auction's largest bid needs, and then that amount itself. Measured on the open demo's terms, over the 400 whole-fUSD bids it can take (1 to 50 fUSD at 8 limits; `test-ts/escrow.test.ts`):
+
+  | Escrow | Bids an observer cannot tell apart |
+  |---|---|
+  | exact (the page's behaviour until 24 November) | 1 to 6, median 2 |
+  | bucket, the default | 71 to 117, median 110 |
+  | the most any bid can need | all 400 |
+
+  What still leaks:
+  - The bucket. It is an upper bound on quantity × limit, and, for a bidder known to use the default, the bucket below it is a lower bound. These counts cover one bid on its own; they are not a secrecy proof.
+  - Fractional quantities are possible too, so the counts measure how much the escrow narrows a bid, not the whole space.
+  - The bidder's address and its funding, when and how often it bids, and the bond.
+  - A bidder who picks *exactly quantity × limit*, or a client other than this page (Peal Bidder, this repository's scripts), can still escrow the exact product. The first five bids in the open demo were committed with exact escrows and stay that way.
+  - A fUSD bidder who buys just the shortfall on the AMM shows about what the bucket needs, not the bid.
 - **One person holds all committee keys in the demo.** The project owner holds all three, as three separate accounts. This is disclosed and for the demo only.
 - **QoreSeal 0.1.0 is a draft** pending external review.
 - **A guest account's phrase sits in the browser's storage, unencrypted.** Anyone with access to that browser profile, or script running on the page, can read it. It is a testnet account made for trying the app: the drawer says so, offers a backup and a *Forget* button, and asks for about 1 QOR of faucet funds, never more. The CSP above narrows script injection; it does not remove the risk.

@@ -994,6 +994,7 @@ body.wallet-open .wallet-scrim {
 }
 
 .app button.secondary:not(.btn):hover {
+  color: var(--text);
   background: var(--surface-2);
   border-color: var(--border-strong);
 }
@@ -1109,6 +1110,55 @@ p.warn {
 
 .sealed {
   margin-top: 16px;
+}
+
+#need > div + div {
+  margin-top: 4px;
+}
+
+.bid-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline-offset: 2px;
+}
+
+.bid-done:empty {
+  display: none;
+}
+
+.tx-link a svg {
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+}
+
+.tx-note {
+  display: block;
+  margin-top: 4px;
+}
+
+.fund-addr {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.fund-addr p {
+  margin: 0;
+}
+
+.native-addr {
+  font-family: var(--mono);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 .sealed:empty {

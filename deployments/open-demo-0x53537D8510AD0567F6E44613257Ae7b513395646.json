@@ -76,5 +76,42 @@
     },
     "bid": "4 fUSD at most 1.50 PEAL-T each: escrow 6 + bond 1 PEAL-T",
     "qorSpent": "0.36 (1.2 → 0.84)"
+  },
+  "fixesTest": {
+    "what": "Two fresh guests on 24 November 2026 (UTC), made in the page on the production build with Vercel's headers and rewrites (npm run web:preview), desktop 1440x900 and phone 390x844 viewports: Copy qor1 address, Check balance, Check every member's keys from the bundled cards (about 1.0 s each), Seal in this browser and commit with a bucketed escrow, then the results page and a reload",
+    "funding": {
+      "note": "test funding only: 0.8 QOR each from the deployer, in one transaction, in place of the dashboard faucet, which needs a signed-in visitor",
+      "tx": "2F6C9030E0629A99EDE777CB1A02FA3A8B72D059AAACA746CECFED7FC1787F1F"
+    },
+    "desktop": {
+      "guest": {
+        "evm": "0x35CB30C4ba027b950F03c87aE66444e3F6B5825B",
+        "native": "qor1xh9np396qfae2rcrepawvezyu0mttqjmw0n355"
+      },
+      "txs": {
+        "registerPqcKey": "4D7443B6F9AC591A2363E381BEEF2FB8B76E10A075DE3A49E215DA7C96C6C30F",
+        "openWindow": "B0850BC951EE02C622D6744C2AE7C19C8C9EE8E7382BF8605FB23AE70A1C755A",
+        "faucetClaim": "99527A07E1A88A3F76767FC2A5CAABB5ED75D91760B9D00A3E7E766D48E39EDF",
+        "approve": "E093E8D3894E23260DB561225D556E76DD2D5EBA0CAB831C7CFD4F2FA39ED7F9",
+        "commitBid": "0xd67bd2adc618432cb90072a91d3eefbc56df37befa51ae7747526859b4d27326"
+      },
+      "bid": "bid 5: 7 fUSD at most 1.50 PEAL-T each; needs 10.5, escrow 25 (bucket) + bond 1 PEAL-T",
+      "qorSpent": "0.36 (0.8 → 0.440451)"
+    },
+    "phone": {
+      "guest": {
+        "evm": "0x2c28FA54Ac1e31C5F8d0C1E409899905F2e7e862",
+        "native": "qor19s50549vrccut7xsc8jqnzveqhew06rzgukhun"
+      },
+      "txs": {
+        "registerPqcKey": "414780DE5EE447FB3CBFAB472299F901140772DB93B677AE5566E1878FF4B744",
+        "openWindow": "BD77A66F6A803A4CB9EF1E0490580A3E6E24A5880E203D652192E276096FCDCC",
+        "faucetClaim": "0DAC5D3F6377977B144CCC153931612F6E05273834C8958F3E4AD5D82F71ED7D",
+        "approve": "A9144B7F630B2DFCD11A6DF93F0AE5B914B731B470062A1E37DF35D6140D241B",
+        "commitBid": "0x9acab34e0d511669f0e6dd8097d051417dca53ff50adae322e1e388fc803f07a"
+      },
+      "bid": "bid 6: 2 fUSD at most 2.00 PEAL-T each; needs 4, escrow 10 (bucket) + bond 1 PEAL-T",
+      "qorSpent": "0.36 (0.8 → 0.440466)"
+    }
   }
 }

@@ -19,23 +19,54 @@ How this repository was built: the workflow, what the AI generated, what went wr
 ```
 
 - **Briefs and steering are written down.** The worker starts from a written brief and the approved design report. The orchestrator steers it through durable inbox messages ("PR merged, continue", "the owner funded the deployer; transfer X to Y first"). The worker acknowledges each one and reports progress in a status file.
-- **Each slice is one reviewable pull request,** checked by CI and an automated reviewer (CodeRabbit). The PRs, in order:
-  1. clearing rule;
-  2. contracts;
-  3. client and daemon;
-  4. web pages;
-  5. testnet deployment;
-  6. this documentation and demo polish.
+- **Each slice is one reviewable pull request,** checked by CI. CodeRabbit, an automated reviewer, is connected to the repository but did not review every one: of the first 17 it left inline comments on three and found nothing actionable on a fourth; the [table](#pull-requests-who-did-what-and-what-review-caught) says which. The other review was the agents' own checks and the owner's decision to merge.
 - **Prior work is read, never copied.** The worker read the author's earlier private project, Peal, read-only, and ported rules rather than files (README "Prior work").
 - **Shared code comes from its owner.** The toolkit `qore-pq-kit` was built in parallel by another worker agent. This worker imported it by git tag and did not write a competing version.
+
+## Pull requests: who did what, and what review caught
+
+All 17 pull requests were written by a worker agent and merged by the human. CodeRabbit counts were read from the GitHub API on 24 November 2026 (inline comments by `coderabbitai[bot]`). "Summary only" means it posted a walkthrough and no inline review (its free plan), "limit" that it answered "Review limit reached", "skipped" that the pull request targeted another branch and automatic review was off there.
+
+| PR | The agent's work | The human's part | CodeRabbit | What else checked it |
+|---|---|---|---|---|
+| [1](https://github.com/Adityaakr/peal-sealed-auction/pull/1) | scaffold, clearing rule | approved the design | summary only | a differential fuzz test against a reference model |
+| [2](https://github.com/Adityaakr/peal-sealed-auction/pull/2) | registry, auction, factory | made the toolkit public again | limit | CI (the toolkit could not be fetched); the agent's review of the ported settlement (rounding) |
+| [3](https://github.com/Adityaakr/peal-sealed-auction/pull/3) | client, daemon, local run | merged | limit | a local run with real ML-DSA-87: forged release refused |
+| [4](https://github.com/Adityaakr/peal-sealed-auction/pull/4) | web pages, proxy, browser run | merged | limit | CI (no headless shell for that Ubuntu) |
+| [5](https://github.com/Adityaakr/peal-sealed-auction/pull/5) | testnet deployment and a whole auction | one faucet claim, how to share it | limit | the live RPC's 10,000-block limit on log queries |
+| [6](https://github.com/Adityaakr/peal-sealed-auction/pull/6) | documentation and demo polish | merged | limit | a read-only check of every page on the testnet |
+| [7](https://github.com/Adityaakr/peal-sealed-auction/pull/7) | smart-account bids, log pruning | merged | summary only | a failed settle run of the joint demo |
+| [8](https://github.com/Adityaakr/peal-sealed-auction/pull/8) | landing page, wallets, hosting | asked for wallet connect and Vercel; chose the wallet paths | limit | building under the CSP; the smoke run |
+| [9](https://github.com/Adityaakr/peal-sealed-auction/pull/9) | the landing page's own identity | rejected a shared look; asked for diagrams | limit | the agent's own review: a drawing overstated the trust assumption |
+| [10](https://github.com/Adityaakr/peal-sealed-auction/pull/10) | new logos | asked for them | reviewed, nothing actionable | checks at four sizes |
+| [11](https://github.com/Adityaakr/peal-sealed-auction/pull/11) | kits plan, audit, QoreX | asked to go deep on kits | **21 inline comments** | the local run (junk bid). The pull request has no commit after the review, so it does not answer the 21 comments |
+| [12](https://github.com/Adityaakr/peal-sealed-auction/pull/12) | evidence, MCP, QoreScan | merged | skipped | the first evidence run (three hashes misclassified) |
+| [13](https://github.com/Adityaakr/peal-sealed-auction/pull/13) | AMM buy for guests | merged | skipped | a testnet proof |
+| [14](https://github.com/Adityaakr/peal-sealed-auction/pull/14) | MetaMask under a spending rule | merged | skipped | the chain refused an oversized approve |
+| [15](https://github.com/Adityaakr/peal-sealed-auction/pull/15) | PEAL-B, the guarded bond | merged | skipped | a resumed run after a machine restart |
+| [16](https://github.com/Adityaakr/peal-sealed-auction/pull/16) | long demo, hosting check, video source | asked for a final check | **11 inline comments** | the review: early-reading overclaims in README and film. 8 of the 11 are marked addressed in commit [`9d8d747`](https://github.com/Adityaakr/peal-sealed-auction/commit/9d8d74793b433a190bd65341df22826562fa6af7) |
+| [17](https://github.com/Adityaakr/peal-sealed-auction/pull/17) | stranger test, `docs/PQC.md` | asked for the re-test | **2 inline comments** | a check against the test sources. The two comments (custody assumption, full auction address) are fixed in the pull request after this one |
+
+In total: 34 inline comments on three pull requests. Examples of comments that stood: the MetaMask rule does not restrict the `approve` spender ([11](https://github.com/Adityaakr/peal-sealed-auction/pull/11), now a stated residual in `THREAT_MODEL.md`); "qualify the early-decryption guarantee" ([16](https://github.com/Adityaakr/peal-sealed-auction/pull/16), fixed there, and the same overclaim in the landing page's hero was found by the 24 November test and fixed after it); "verify excluded bids before marking them as agreeing" ([11](https://github.com/Adityaakr/peal-sealed-auction/pull/11), still open: the audit shows an excluded bid's plaintext but does not repeat the contract's exclusion rule).
+
+## A brief, as written
+
+The orchestrator's specification for the 24 November fixes, verbatim, with local file paths replaced by `[path]` and nothing else changed:
+
+> - From that report fix items 5 (committee check and audit slowing daily: use verified bundled cards first, with on-chain hash verification kept, and scan only as fallback; audit from recorded blocks), 6 (escrow rounded up to a bucket by default, explained in UI, README and threat model, remainder refunded; measure and state honestly what still leaks), 7 (hero overclaim), 8 (AI_USAGE.md accuracy with checked numbers and linked evidence), 10 (drawer hides success), 11 (copy full qor1 address button and funding hint), 12 (stale preview race). Include cheap items 13, 14, 15, 16. Correct item 9's sentence in [path].
+> - No contract changes or redeploys, no redesign. Never weaken a cryptographic check for speed; add tests that a wrong bundled card is refused.
+> - Everything green, then re-run the hosted-equivalent flow on the production build against testnet, with a throwaway guest. Deployer throwaway funds: at most 2 test QOR. Never print or commit keys; never use the drill key.
+> - Report before and after timings. Do not claim what was not measured.
+
+"That report" is another agent's test of the hosted site, from the same day.
 
 ## What the AI generated
 
 Everything in this repository:
-- the Solidity contracts and their 105 Foundry tests (unit, fuzz, and invariants with a random-actor handler);
-- the TypeScript client and its tests;
+- the Solidity contracts and their 111 Foundry tests (unit, fuzz, and invariants with a random-actor handler; `forge test` on 24 November 2026);
+- the TypeScript client and its 43 tests (`npm run test:ts`);
 - the committee daemon;
-- the five web pages;
+- the six web pages (the landing page, and the auctions, issuer, bidder, committee and results pages);
 - the REST proxy;
 - the local stack, the end-to-end and browser runs;
 - the testnet scripts;
@@ -138,3 +169,19 @@ The worker also ran the testnet deployment and the demo auction.
   - The first open demo had closed with three visitor bids, and its release window was ending. If no one had released by then, the auction would have failed and refunded everyone. The worker settled it with the existing commands: members 1 and 2 released and `openBids` decrypted the bids. Member 3 then released from its own daemon, so a fresh guest could press *Finalize* and *Pay out every bid* on the results page. `npm run testnet -- audit` passed.
   - It wrote `docs/PQC.md` (every `pqcVerify` and `pqcKeyStatus` call site, what it protects, its tests and a testnet transaction), added explorer links, a "why post-quantum matters here" paragraph and a jury table to the README, and gave the bid page's committee check, which can take up to a minute, a visible state.
   - What went wrong: the browser bridge would not attach to the default Chrome, so the worker drove Chrome for Testing. A gitignored local config left over from `npm run e2e:local` made the first preview show a local auction. The worker deleted it and rebuilt, so the preview matched what Vercel serves. The first draft of `docs/PQC.md` named two fail-closed tests in the wrong files; a check against the test sources caught it.
+
+### 2026-11-24
+
+- **The site went live.** The repository was imported in Vercel, which is the owner's step, after the 23 November entry. <https://peal-sealed-auction.vercel.app> was first recorded answering on 24 November at 18:35 UTC, when the hosted test below started.
+- **A test of the hosted site, by an agent that changed nothing.** The owner asked for a full test of the hosted entry and a check of the AI-native requirements. Two new guests, desktop and phone, committed real bids (3 and 4 in the open demo) and every transaction succeeded on chain. Its report found what the earlier passes had missed:
+  - The committee check and the audit scanned the chain's logs from the tip, so they got slower every day.
+  - The escrow was exactly quantity × limit, and public, so it gave away most of a sealed bid. The threat model said escrow bounds the value; the page offered no way to avoid it and the README left it out.
+  - The landing page's hero still said nobody can open a bid early.
+  - This file said 105 tests, five pages and that CodeRabbit had checked each slice. All three were wrong.
+- **The fixes.** A worker took the report's items, with the brief quoted above.
+  - Committee cards that ship with the page are used only where their hash is the one the member signed into the registry. Every later check is unchanged. A wrong card is refused and read from the chain. The audit asks for the recorded blocks first and scans only if they do not hold every release. The committee check went from 33 to 63 s on the live site to 1.4 to 2.0 s, and the audit of the 16 November run from 31 to 33 s to 3.1 to 3.4 s (headless Chromium, same machine and connection; four and two runs before, ten and five after).
+  - The escrow is rounded up to a bucket by default, with a wider bucket, the maximum and the exact amount as choices. The worker measured what the escrow leaves an observer (`test-ts/escrow.test.ts`). Its first ladder left only 6 of the 400 whole-fUSD bids in the top bucket. The measurement showed that, and the ladder now ends at the auction's largest possible bid.
+  - Explorer links: the first design linked the EVM hash. Opening one showed the explorer answers "Transaction not found" for it, so the page looks up the native hash first.
+  - The wallet drawer closes on success and the outcome is brought into view. A button copies the whole `qor1…` address. The escrow preview is computed in the page, so a slow reply cannot overwrite it. The results page uses plain words and token amounts. Shared links have a card.
+  - Tests for wrong bundled cards (tampered, swapped, outsider-signed, malformed, self-consistent but false, broken signature) and for the recorded blocks. `e2e:local` also checks that the remainder of a bucketed escrow comes back.
+  - Re-run on the production build against the testnet with two new guests; every hash is under `fixesTest` in `deployments/open-demo-0x53537D…5646.json`. The deployer spent 1.75 test QOR. Not tested: the dashboard faucet itself (it needs a sign-in), and the QoreX and MetaMask routes, which were not changed except that the drawer closes on success and the escrow is bucketed.

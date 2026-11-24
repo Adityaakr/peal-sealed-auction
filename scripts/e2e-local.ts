@@ -21,6 +21,9 @@ import { hexToBytes, keccak256, parseUnits, toBytes, toHex, type Abi, type Addre
 import { auditAuction } from "../client/audit.ts";
 import {
   bidContext,
+  checkCommittee,
+  escrowChoice,
+  escrowNeeded,
   decodePlaintext,
   encodePlaintext,
   readCommittee,
@@ -68,6 +71,13 @@ async function run(s: Stack): Promise<void> {
   s.setLying(true);
   await expectRevert(resolveCommittee(committee, { client, rest: s.restUrl }), "a REST proxy that swaps a member's ML-KEM key", /does not match/);
   s.setLying(false);
+  // Bundled cards: used without reading logs when they match the registry, refused when they do not.
+  const opts = { rest: s.restUrl };
+  check((await checkCommittee(client, registry, setId, { ...opts, bundled: committee })).committee.cardsFrom === "bundled", "bundled cards that match the registry are used, and every member verifies");
+  const wrong = structuredClone(committee) as typeof committee;
+  wrong.members[0]!.card = { ...wrong.members[0]!.card, x25519PublicKey: wrong.members[1]!.card.x25519PublicKey };
+  const again = await checkCommittee(client, registry, setId, { ...opts, bundled: wrong });
+  check(again.committee.cardsFrom === "events" && again.committee.refused.join() === "1", "a wrong bundled card is refused; the chain's own card is used instead");
 
   // ------------------------------------------------------------ the auction (a buyback-shaped sale)
   const auction = await s.createAuction();
@@ -84,14 +94,20 @@ async function run(s: Stack): Promise<void> {
     [bidders[1]!, parseUnits("70", 18), 1],
     [bidders[2]!, parseUnits("100", 18), 0],
   ];
+  const escrowed = new Map<Address, bigint>();
   for (const [b, qty, tick] of plan) {
     const ctx = await bidContext(client, auction, b.address, qty, tick);
-    await s.mintFusd(b.address, ctx.escrow + ctx.bond);
-    await call(b, fusd, erc20, "approve", [auction, ctx.escrow + ctx.bond]);
+    // Bids escrow a rounded-up bucket, as the pages do; the remainder comes back with the claim.
+    const terms = await client.readContract({ address: auction, abi: sealedAuctionAbi, functionName: "config" });
+    if (escrowNeeded(terms, qty, tick) !== ctx.escrow) throw new Error(`escrowNeeded differs from the contract's escrowFor: ${escrowNeeded(terms, qty, tick)} vs ${ctx.escrow}`);
+    const escrow = escrowChoice("bucket", ctx.escrow, escrowNeeded(terms, terms.totalSupply, terms.numTicks - 1), 6);
+    escrowed.set(b.address, escrow);
+    await s.mintFusd(b.address, escrow + ctx.bond);
+    await call(b, fusd, erc20, "approve", [auction, escrow + ctx.bond]);
     const c = sealBid({ chainId, auction, bidder: b.address, seq: ctx.seq, quantity: qty, tick, recipients, threshold: committee.threshold });
-    await call(b, auction, sealedAuctionAbi as Abi, "commitBid", [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, ctx.escrow]);
+    await call(b, auction, sealedAuctionAbi as Abi, "commitBid", [c.seq, c.ct, c.keyHash, c.shareHashes, c.envelopes, escrow]);
     const bytes = c.envelopes.reduce((n, e) => n + hexToBytes(e).length, 0);
-    console.log(`  ${b.name}: sealed bid committed (ct ${c.ct.slice(0, 18)}…, ${bytes} bytes of envelopes, escrow ${ctx.escrow})`);
+    console.log(`  ${b.name}: sealed bid committed (ct ${c.ct.slice(0, 18)}…, ${bytes} bytes of envelopes, needs ${ctx.escrow}, escrow ${escrow})`);
   }
   // A junk bid: shares that rebuild no key. Excluded, never fatal.
   {
@@ -169,6 +185,9 @@ async function run(s: Stack): Promise<void> {
   check((await bal(pealt, bidders[0]!.address)) === parseUnits("50", 18), "alice received 50 PEAL-T");
   check((await bal(pealt, bidders[1]!.address)) === parseUnits("50", 18), "bob received 50 PEAL-T (rationed at the clearing tick)");
   check((await bal(fusd, bidders[0]!.address)) === 25_000_000n + 5_000_000n, "alice paid 1.50, not her 2.00: 25 fUSD + bond refunded");
+  const bobEscrow = escrowed.get(bidders[1]!.address)!;
+  check(bobEscrow > 105_000_000n, `bob escrowed ${bobEscrow / 1_000_000n} fUSD, a bucket above the 105 his bid needs`);
+  check((await bal(fusd, bidders[1]!.address)) === bobEscrow - 75_000_000n + 5_000_000n, "bob paid 75 fUSD; the whole remainder of his escrow + bond came back");
   check((await bal(fusd, issuer.address)) === 150_000_000n, "issuer received 150 fUSD");
   check((await bal(fusd, auction)) === 0n && (await bal(pealt, auction)) === 0n, "auction holds nothing after every claim");
 

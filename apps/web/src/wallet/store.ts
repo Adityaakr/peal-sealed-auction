@@ -15,7 +15,7 @@ export interface WalletState {
   qorex?: QorexAccount;
   metamask?: { address: string; wallet: string; onQoreChain: boolean };
   busy?: string;
-  log: string[];
+  log: { text: string; tx?: string }[];
   error?: string;
   /** Set once the saved guest (if any) has been read. */
   ready: boolean;
@@ -33,8 +33,9 @@ export function emit(): void {
   for (const f of listeners) f();
 }
 
-export function log(line: string): void {
-  state.log = [...state.log.slice(-30), line];
+/** Add a line to the drawer's log; `tx` is the transaction it reports, to link. */
+export function log(text: string, tx?: string): void {
+  state.log = [...state.log.slice(-30), { text, ...(tx ? { tx } : {}) }];
   emit();
 }
 
@@ -54,8 +55,14 @@ let opener: () => void = () => {};
 export function openPanel(): void {
   opener();
 }
-export function setOpenPanel(f: () => void): void {
-  opener = f;
+let closer: () => void = () => {};
+/** Close the drawer, so what the page shows next is not under it. */
+export function closePanel(): void {
+  closer();
+}
+export function setPanel(open: () => void, close: () => void): void {
+  opener = open;
+  closer = close;
 }
 
 /**
@@ -144,7 +151,7 @@ export async function actWithMetaMask(
   openPanel();
   try {
     const tx = await guest.runWithMetaMask(state.guest, { provider, address: state.metamask.address as `0x${string}` }, scope, calls, log);
-    log(`${title}: done (tx ${tx.slice(0, 10)}…).`);
+    log(`${title}: done (tx ${tx.slice(0, 10)}…).`, tx);
     return tx;
   } catch (e) {
     state.error = e instanceof Error ? e.message.split("\n")[0] : String(e);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { encodeFunctionData, getAddress, hexToBytes, type PublicClient } from "viem";
 import { sealedAuctionAbi } from "../client/abi.ts";
 import { collectLogs, lowestAvailable } from "../client/logs.ts";
+import { recordedReleases } from "../client/recorded.ts";
 import { envelopesFromExecuteEvm } from "../client/release.ts";
 
 const auction = getAddress("0x481fbb2c84582bf7c258c46bf523deebde51e990");
@@ -65,5 +66,39 @@ describe("log scans on a pruned node", () => {
       [8_795_000n, 8_800_000n],
     ]);
     expect(out).toEqual([8_795_000n]);
+  });
+});
+
+describe("recorded blocks", () => {
+  const client = { getBlockNumber: async () => 30_000n } as unknown as PublicClient;
+  const reader = (at: bigint[]) => {
+    const asked: [bigint, bigint][] = [];
+    return { asked, read: async (from: bigint, to: bigint) => (asked.push([from, to]), at.filter((b) => b >= from && b <= to)) };
+  };
+
+  it("reads only the recorded range when it holds every event", async () => {
+    const r = reader([105n, 110n]);
+    expect(await collectLogs(client, r.read, 2, { recorded: { from: 100n, to: 120n } })).toEqual([105n, 110n]);
+    expect(r.asked).toEqual([[100n, 120n]]);
+  });
+
+  it("a wrong, short or unreadable range costs one read: the scan still finds every event, once", async () => {
+    for (const recorded of [{ from: 1n, to: 2n }, { from: 100n, to: 106n }]) {
+      expect(await collectLogs(client, reader([105n, 110n]).read, 2, { recorded })).toEqual([105n, 110n]);
+    }
+    const r = reader([105n]);
+    const flaky = async (from: bigint, to: bigint) => {
+      if (from === 100n) throw new Error("node busy");
+      return r.read(from, to);
+    };
+    expect(await collectLogs(client, flaky, 1, { recorded: { from: 100n, to: 120n } })).toEqual([105n]);
+  });
+
+  it("every recorded range fits one log query, and belongs to this chain only", () => {
+    for (const a of ["0x9CbA5CFAB2C18a939536CF02906dD543B85Ec124", "0x9A98Fc3b3B5078Bd22bAE5fb937395Ba1AE8c7B4", "0xd919F252cD684AF3822DF42F160BAeDf61DCDF68"] as const) {
+      const r = recordedReleases(9800n, a)!;
+      expect(r.to - r.from >= 0n && r.to - r.from < 10_000n).toBe(true);
+      expect(recordedReleases(31337n, a)).toBeUndefined();
+    }
   });
 });
