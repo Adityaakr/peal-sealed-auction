@@ -64,7 +64,7 @@ The orchestrator's specification for the 24 November fixes, verbatim, with local
 
 Everything in this repository:
 - the Solidity contracts and their 111 Foundry tests (unit, fuzz, and invariants with a random-actor handler; `forge test` on 24 November 2026);
-- the TypeScript client and its 51 tests (`npm run test:ts`);
+- the TypeScript client and its 95 tests (`npm run test:ts`, 24 November 2026);
 - the committee daemon;
 - the six web pages (the landing page, and the auctions, issuer, bidder, committee and results pages);
 - the REST proxy;
@@ -193,3 +193,8 @@ The worker also ran the testnet deployment and the demo auction.
   - The forged signature is an outsider's valid ML-DSA-87 signature over the exact message, made once by `scripts/judge-fixture.ts` with a throwaway key that was not kept. The page holds no key.
   - What a call cannot reach is stated in the page, and one row shows something the contract does accept (envelopes addressed to nobody).
   - `npm run judge:live` (28 answers) and the headless browser run on the production build passed against the testnet. CI runs the browser part on recorded testnet answers.
+- **The committee finds bids made by a vault.** The owner approved the vault for Peal Bidder ("do it build the vault"); a design spike had found that the committee would miss such a bid's envelopes and its bond would burn. A worker changed the reader from a written spec (work began 24 November, 21:10 UTC).
+  - The design keyed the envelopes by the vault and its sequence. The worker found that this alone lets anyone send a look-alike call to an address that accepts any call, and that the last match would win; the reader keeps several sets and tries each against the on-chain hash.
+  - It also found that a failed page ended the search silently, which turned a busy node into a flagged bid. It now stops the member instead.
+  - What went wrong: the first mutation run reported every mutant caught, because one test was already failing (a function selector the worker had written from memory). The test was corrected with `cast`, and the run repeated from a green baseline: 22 of 22 caught.
+  - Run with the prototype vault on a local chain, old reader against new. Not run on the testnet.

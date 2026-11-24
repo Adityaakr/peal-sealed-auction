@@ -135,6 +135,15 @@ Testnet facts change quickly and the docs disagree in places, so details are set
 | Submodules | The Asset Kit nests eight submodules (T-REX, CMTAT, ONCHAINID, OpenZeppelin v4 and v5); the guard needs none of them (OpenZeppelin comes from this repository's remapping). CI checks out submodules non-recursively | `.github/workflows/ci.yml` |
 | A run interrupted mid-settle | The machine restarted after `openBids`; `bond.ts` resumes with `finalize` in the payout window instead of settling again | `deployments/bond-demo.json` |
 
+## 2026-11-24, bids made by a vault contract
+
+| Question | Finding | How |
+|---|---|---|
+| Does the committee find a vault bid sent as `MsgExecuteEVM`? | **Not before this change.** The message goes to the vault and the bidder is the vault, so the search for calls to the auction missed it: three members flagged the bid and its 5 fUSD bond burned. With the new reader all three opened it, the auction settled, and the vault was paid | anvil with the prototype vault, `memberStep` with the event logs hidden; not on the testnet |
+| Do earlier bids read the same? | Yes: the old and new readers returned identical data for five testnet auctions, 16 bids | read-only run of both readers |
+| How does the REST transaction search page? | `pagination.limit` is ignored, `limit` is honoured up to 100, `total` gives the count (697 today), and a page past the end answers HTTP 500 with "page should be within [1, 7] range" | `curl` |
+| How far back must it look? | The old search stopped after 10 pages, about 1,000 messages. It now runs to the start of bidding, at most 100 pages | same; about 56 messages a day |
+
 ## Open questions (to settle on testnet)
 
 - Release gas at larger bid counts (each extra bid adds a share check and a storage write).

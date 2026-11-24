@@ -4,7 +4,7 @@ import { encodeFunctionData, getAddress, hexToBytes, type PublicClient } from "v
 import { sealedAuctionAbi } from "../client/abi.ts";
 import { collectLogs, lowestAvailable } from "../client/logs.ts";
 import { recordedReleases } from "../client/recorded.ts";
-import { envelopesFromExecuteEvm } from "../client/release.ts";
+import { executeEvmBids } from "../client/release.ts";
 
 const auction = getAddress("0x481fbb2c84582bf7c258c46bf523deebde51e990");
 const bidder = getAddress("0xaCdB2d02220FAf6e17B5bdA53DDd90B46d9426BA");
@@ -36,9 +36,8 @@ describe("envelopes from MsgExecuteEVM calldata", () => {
       tx(auction.toLowerCase(), encodeFunctionData({ abi: sealedAuctionAbi, functionName: "closeCommit" })), // not a commit
     ];
     const fetch = (async () => new Response(JSON.stringify({ tx_responses: responses }))) as typeof globalThis.fetch;
-    const m = await envelopesFromExecuteEvm("http://rest", auction, fetch);
-    expect([...m.keys()]).toEqual([`${bidder.toLowerCase()}:0`]);
-    expect(m.get(`${bidder.toLowerCase()}:0`)).toEqual(["0xaaaaaaaa"]);
+    const found = await executeEvmBids("http://rest", auction, { fetch });
+    expect(found.map((b) => [b.lane, b.bidder, b.seq, b.envelopes])).toEqual([["account", bidder.toLowerCase(), 0n, ["0xaaaaaaaa"]]]);
   });
 });
 
