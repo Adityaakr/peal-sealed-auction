@@ -261,6 +261,18 @@ npm run web                                   # then http://localhost:5173/?net=
 
 **A committee member's daemon:** `npm run committee -- --member committee1 --auction 0x… [--keeper]`. It waits for the on-chain close, releases once, and as a keeper opens the bids and finalizes when no release can still arrive.
 
+**Bids from a vault contract.** A contract can bid: `commitBid` takes whoever calls it. When a smart account tells a vault to bid (`MsgExecuteEVM` to the vault, calling `bid(auction, seq, ct, keyHash, shareHashes, envelopes, escrow)`), the node indexes no event logs, so the envelopes exist only in that message. The committee's reader (`client/release.ts`) finds them there and keys them by the vault and its sequence. The envelopes are never trusted: each member opens its own and checks the share against the hash the auction stored. Tests: `test-ts/vault.test.ts`.
+
+A member running the older reader flags such a bid, and if all members do, the bid's bond burns. So the reader must be current **before** an auction with a vault bid closes, everywhere a member releases from:
+
+| Where | How it gets the new reader |
+|---|---|
+| Committee page on <https://peal-sealed-auction.vercel.app> | Vercel redeploys on each push to `main`; a tab opened earlier must be reloaded |
+| `npm run testnet -- settle` (how the demo auctions are opened) and `npm run testnet -- demo` | runs from the owner's checkout: `git pull` before running it |
+| `npm run committee` (the daemon) | a running process keeps the old code: `git pull`, then restart it |
+
+The vault itself is a separate contract in Peal Bidder. **It is not audited.** When this was written, the reader had opened a prototype vault's bid on a local chain only, not on the testnet. What a stolen key can still do: [`THREAT_MODEL.md`](THREAT_MODEL.md#bids-made-through-a-vault).
+
 ## Hosting on Vercel
 
 The repository is ready to import in Vercel as it is: `vercel.json` holds everything, and no environment variables or secrets are needed. Vercel's free tier is enough. A clean clone builds with exactly these commands (checked on 21 November 2026).

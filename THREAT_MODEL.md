@@ -49,6 +49,8 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | The demo auction fills up with junk bids | At most 32 bids (20 in the first demo); each needs a registered ML-DSA-87 key, a window and a bond; junk is excluded and its bond burns | `create --max-bids 32`; `test_malformedPlaintextBurnsBond` |
 | Stolen classical (secp256k1) key | QoreChain admits EVM transactions only inside a window opened by a hybrid ML-DSA-87 signature. The scripts scope every window to the contracts an account needs and to an exact transaction count | testnet demo (scoped windows, spent windows inert) |
 | Stolen MetaMask key linked to a bidder's account | The key is an authenticator on the bidder's post-quantum account, linked by the owner's hybrid signature with a possession proof, for 24 hours. The account's spending rule admits only the demo faucet's `claim`, the quote token's `approve`, and `commitBid` and `claim` on that one auction, and caps the quote token per call and per day. Anything else comes back `success = false`, and the owner can revoke the key. Residual: within the caps the key can approve or transfer the quote token, because the chain lets a listed token move (Peal Bidder's finding) | `test-ts/linked-key.test.ts`; testnet: an approve of fUSD outside the rule refused (`B04CA6CD…145C`), an approve over the per-call cap refused (`837DBC8D…5F1B`), bids inside the rule executed (`8B0B3A1D…46E3`, `3F5BAD73…4109`) |
+| Junk envelopes sent in a vault's name, to get its bid flagged and its bond burned | The chain does not authenticate the *target* of a `MsgExecuteEVM`, so anyone can send `bid(...)` to an address that accepts any call, copying a real bid's public hashes. A vault that refuses a caller who is not its operator makes such a call fail, and failed calls are skipped. Otherwise: only calls whose `ct`, `keyHash` and share hashes equal what the auction stored are kept, up to 16 sets, oldest first (a copy cannot precede the bid it copies), and the member tries each until its share matches the on-chain hash. A bidder's own `commitBid` always wins over a `bid(...)` sent to its address | `test-ts/vault.test.ts`: imitations before and after the bid, a flood of 250, only junk; another auction, malformed and nested calls |
+| A REST node that fails part-way through the search makes a good bid look like one with no envelopes | A page that cannot be read is retried, then the member stops without releasing and tries again. The search runs back to the start of bidding, at most 100 pages | `test-ts/vault.test.ts`: busy page, unreadable page, 2,350 later messages |
 | PEAL-B moved to, or allocated to, an account a classical key alone controls | PEAL-B admits a holder only if the Asset Kit guard finds a registered ML-DSA-87 key with proof of possession (`pqcKeyStatus`, failing closed when the precompile answers nothing), or the holder is the venue's factory or one of its auction clones (matched by EIP-1167 code hash). Residual: a holder's key status is read at receipt only; a demo token, not a compliance product | `test/PealBond.t.sol`; testnet payouts `0x4a796ff9…75fd`, `0x1c216b6b…e7a1`; `NotEligible` on a transfer to a keyless address |
 
 ## Design rules (from Peal's plan 017 review, credited)
@@ -88,6 +90,24 @@ What Peal Sealed Auction protects, against whom, and what it does not. Every def
 | Ed25519, ECDSA P-256/P-384, RSA, X25519MLKEM768 | validator consensus keys and the endpoints' TLS | QoreChain's infrastructure, outside this project; the endpoints already negotiate the hybrid X25519MLKEM768 |
 
 QoreScan is an inventory aid, not a certification.
+
+## Bids made through a vault
+
+A vault is a contract that holds a bidder's budget and calls `commitBid` itself, so the auction sees the vault as the bidder. Nothing in the auction contracts changed for it, and the auction trusts it with nothing. The vault lives in Peal Bidder; its own threat model belongs there. **It is new code and has not been audited**, and neither has the committee's reader.
+
+What somebody who steals the key allowed to call `bid` can still do, inside the vault's limits, according to the prototype's tests:
+- **Overpay.** Bid at the top tick in an auction the owner approved. The money goes to that auction's issuer, who may be the thief's accomplice.
+- **Burn bonds.** Send bids that open to nonsense. Each loses its bond; the escrow comes back.
+- **Lock the budget** in bids until the auctions settle, up to three days past the release deadline.
+- **Choose what is sealed.** The vault cannot see the quantity or the tick inside a sealed bid.
+
+It cannot send the vault's tokens to an address of its choosing.
+
+What the committee's side adds:
+- **Every member must run the current reader.** A member with the older one flags a vault's bid. If all members flag it, its bond burns and its escrow is refunded.
+- **The reader depends on a REST transaction search** for these bids. A node that hides the message makes the bid look like one without envelopes, as it already could for a smart account's own bid. More than 10,000 `MsgExecuteEVM` messages between a bid and its close would push it past the search's limit.
+- **A node that answers with errors for the whole release window** stops members releasing when a bid's envelopes are not in the event logs. The auction then fails and refunds everyone, where the older reader would have flagged the bid and gone on.
+- **It understands one call,** `bid(address,uint32,bytes32,bytes32,bytes32[],bytes[],uint256)` sent directly to the vault. A bid made through another contract, or wrapped in another message, is not found unless its event log is.
 
 ## Residual risks, stated plainly
 

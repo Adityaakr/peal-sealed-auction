@@ -27,6 +27,8 @@ export interface CommittedBid {
   keyHash: Hex;
   shareHashes: Hex[];
   envelopes: Hex[];
+  /** Further envelope sets claiming to be this bid's (a vault bid's, from calldata anyone can imitate); the first that opens counts. */
+  alternates?: Hex[][];
   escrow: bigint;
 }
 
@@ -39,8 +41,12 @@ export interface CommittedBid {
  *   1. `BidCommitted` event logs, when the RPC still has them;
  *   2. otherwise the calldata of the `MsgExecuteEVM` that carried the commit
  *      (a smart-account bid, whose EVM logs the JSON-RPC does not index), found
- *      through the REST transaction search (`rest`).
- * A bid whose envelopes cannot be found gets none; the member then flags it.
+ *      through the REST transaction search (`rest`): either `commitBid` sent by
+ *      the bidder itself, or `bid(auction, ...)` sent to a vault, whose bidder is
+ *      the vault (`bidderVaultAbi`).
+ * A bid whose envelopes cannot be found gets none; the member then flags it. A
+ * search that fails part-way throws instead: a bid flagged by every member
+ * loses its bond, so a busy REST node must not look like a missing envelope.
  */
 export async function readBids(
   client: PublicClient,
@@ -83,10 +89,26 @@ export async function readBids(
     envelopes: envelopes.get(BigInt(i)) ?? [],
     escrow: b.escrow,
   }));
-  if (opts.rest && bids.some((b) => b.envelopes.length === 0)) {
-    const found = await envelopesFromExecuteEvm(opts.rest, auction, opts.fetch);
-    for (const b of bids) {
-      if (b.envelopes.length === 0) b.envelopes = found.get(`${b.bidder.toLowerCase()}:${b.seq}`) ?? [];
+  const missing = bids.filter((b) => b.envelopes.length === 0);
+  if (opts.rest && missing.length > 0) {
+    const found = await executeEvmBids(opts.rest, auction, { fetch: opts.fetch, since: cfg.startTime });
+    const direct = new Map<string, Hex[]>();
+    const viaVault = new Map<string, ExecuteEvmBid[]>();
+    for (const x of found) {
+      const key = `${x.bidder}:${x.seq}`;
+      if (x.lane === "account") direct.set(key, x.envelopes);
+      else if (!viaVault.get(key)?.push(x)) viaVault.set(key, [x]);
+    }
+    for (const b of missing) {
+      const key = `${b.bidder.toLowerCase()}:${b.seq}`;
+      const own = direct.get(key);
+      if (own) {
+        b.envelopes = own;
+        continue;
+      }
+      const sets = vaultCandidates(b, viaVault.get(key) ?? []);
+      b.envelopes = sets[0] ?? [];
+      if (sets.length > 1) b.alternates = sets.slice(1);
     }
   }
   return bids;
@@ -94,41 +116,159 @@ export async function readBids(
 
 const EXECUTE_EVM = "/qorechain.abstractaccount.v1.MsgExecuteEVM";
 
-/** commitBid envelopes carried by successful MsgExecuteEVM transactions to `auction`, keyed by "bidder:seq". */
-export async function envelopesFromExecuteEvm(
+/**
+ * The call a bidder vault takes: `commitBid`'s arguments behind the auction's
+ * address. The vault sends `commitBid`, so it is the bidder on chain. Any vault
+ * with this function works; nothing here trusts one.
+ */
+export const bidderVaultAbi = [
+  {
+    type: "function",
+    name: "bid",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "auction", type: "address" },
+      { name: "seq", type: "uint32" },
+      { name: "ct", type: "bytes32" },
+      { name: "keyHash", type: "bytes32" },
+      { name: "shareHashes", type: "bytes32[]" },
+      { name: "envelopes", type: "bytes[]" },
+      { name: "escrow", type: "uint256" },
+    ],
+    outputs: [{ name: "bidId", type: "uint256" }],
+  },
+] as const;
+
+/** SealedAuction.MAX_ENVELOPE_BYTES. */
+const MAX_ENVELOPE_BYTES = 4096;
+/** Seven envelopes of the largest size, as base64, with room for the rest of the call. */
+const MAX_VAULT_CALL_BASE64 = 48_000;
+/** Envelope sets tried for one vault bid. */
+export const MAX_VAULT_CANDIDATES = 16;
+
+/** A bid found in a successful `MsgExecuteEVM`. `account`: sent by the bidder to the auction. `vault`: sent to the bidder, a vault. */
+export interface ExecuteEvmBid {
+  lane: "account" | "vault";
+  /** Lower-case address. */
+  bidder: Address;
+  seq: bigint;
+  ct: Hex;
+  keyHash: Hex;
+  shareHashes: Hex[];
+  envelopes: Hex[];
+}
+
+/**
+ * The envelope sets worth trying for a vault bid, oldest first.
+ *
+ * The chain authenticates the sender of a `MsgExecuteEVM`, not its target, so
+ * anyone can send a `bid(...)` to an address that accepts any call (one with no
+ * code, for example) and copy a real bid's public hashes around junk envelopes. A copy
+ * can only follow the bid it copies, hence oldest first, and the member tries
+ * each set until its share matches the on-chain hash (`openMemberShares`).
+ */
+function vaultCandidates(b: CommittedBid, newestFirst: readonly ExecuteEvmBid[]): Hex[][] {
+  const out: Hex[][] = [];
+  const seen = new Set<string>();
+  for (const x of [...newestFirst].reverse()) {
+    if (x.ct !== b.ct || x.keyHash !== b.keyHash || x.shareHashes.join() !== b.shareHashes.join()) continue;
+    if (x.envelopes.length !== b.shareHashes.length || x.envelopes.some((e) => e === "0x" || (e.length - 2) / 2 > MAX_ENVELOPE_BYTES)) continue;
+    const id = x.envelopes.join();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(x.envelopes);
+    if (out.length === MAX_VAULT_CANDIDATES) break;
+  }
+  return out;
+}
+
+interface TxSearch {
+  total?: string;
+  tx_responses?: {
+    code: number;
+    timestamp?: string;
+    events?: { type: string; attributes?: { key: string; value: string }[] }[];
+    tx: { body: { messages: { "@type": string; account?: string; to?: string; data?: string }[] } };
+  }[];
+}
+
+/**
+ * Bids for `auction` carried by successful MsgExecuteEVM transactions, newest
+ * first: `commitBid` sent to the auction, and `bid(auction, ...)` sent to a
+ * vault. The search stops at the auction's start (`since`, unix seconds), at
+ * the end of the results, or after `maxPages`. Throws when a page cannot be read.
+ */
+export async function executeEvmBids(
   rest: string,
   auction: Address,
-  f: typeof globalThis.fetch = globalThis.fetch,
-  maxPages = 10,
-): Promise<Map<string, Hex[]>> {
-  const out = new Map<string, Hex[]>();
-  const q = encodeURIComponent(`message.action='${EXECUTE_EVM}'`);
-  for (let page = 1; page <= maxPages; page++) {
-    const res = await f(`${rest.replace(/\/+$/, "")}/cosmos/tx/v1beta1/txs?query=${q}&order_by=ORDER_BY_DESC&pagination.limit=50&page=${page}`);
-    if (!res.ok) break;
-    const body = (await res.json()) as {
-      tx_responses?: { code: number; events?: { type: string }[]; tx: { body: { messages: { "@type": string; account?: string; to?: string; data?: string }[] } } }[];
-    };
-    const txs = body.tx_responses ?? [];
+  opts: { fetch?: typeof globalThis.fetch; since?: bigint; maxPages?: number; retryMs?: number } = {},
+): Promise<ExecuteEvmBid[]> {
+  const out: ExecuteEvmBid[] = [];
+  const target = auction.toLowerCase();
+  let seen = 0;
+  for (let page = 1; page <= (opts.maxPages ?? 100); page++) {
+    const body = await searchPage(rest, page, opts.fetch ?? globalThis.fetch, opts.retryMs ?? 500);
+    const txs = body?.tx_responses ?? [];
     for (const t of txs) {
-      if (t.code !== 0 || t.events?.some((e) => e.type === "abstractaccount_execution_failed")) continue;
-      for (const m of t.tx.body.messages) {
+      if (t.code !== 0) continue;
+      const failures = (t.events ?? []).filter((e) => e.type === "abstractaccount_execution_failed");
+      for (const [i, m] of t.tx.body.messages.entries()) {
         if (m["@type"] !== EXECUTE_EVM || !m.to || !m.data || !m.account) continue;
-        if (m.to.toLowerCase() !== auction.toLowerCase()) continue;
         try {
-          const data = toHex(Uint8Array.from(atob(m.data), (c) => c.charCodeAt(0)));
-          const call = decodeFunctionData({ abi: sealedAuctionAbi, data });
-          if (call.functionName !== "commitBid") continue;
-          const [seq, , , , envs] = call.args as readonly [number, Hex, Hex, readonly Hex[], readonly Hex[], bigint];
-          out.set(`${bech32ToHex(m.account).toLowerCase()}:${BigInt(seq)}`, [...envs]);
+          const to = m.to.toLowerCase() as Address;
+          if (to === target) {
+            if (failures.length > 0) continue;
+            const call = decodeFunctionData({ abi: sealedAuctionAbi, data: base64ToHex(m.data) });
+            if (call.functionName !== "commitBid") continue;
+            const [seq, ct, keyHash, hashes, envs] = call.args as readonly [number, Hex, Hex, readonly Hex[], readonly Hex[], bigint];
+            out.push({ lane: "account", bidder: bech32ToHex(m.account).toLowerCase() as Address, seq: BigInt(seq), ct, keyHash, shareHashes: [...hashes], envelopes: [...envs] });
+          } else {
+            // A failure event names its message; one that does not is taken to cover them all.
+            if (failures.some((e) => (e.attributes?.find((x) => x.key === "msg_index")?.value ?? String(i)) === String(i))) continue;
+            if (!/^0x[0-9a-f]{40}$/.test(to) || m.data.length > MAX_VAULT_CALL_BASE64) continue;
+            const { args } = decodeFunctionData({ abi: bidderVaultAbi, data: base64ToHex(m.data) });
+            const [forAuction, seq, ct, keyHash, hashes, envs] = args;
+            if (forAuction.toLowerCase() !== target) continue;
+            out.push({ lane: "vault", bidder: to, seq: BigInt(seq), ct, keyHash, shareHashes: [...hashes], envelopes: [...envs] });
+          }
         } catch {
-          // not a commitBid we can decode
+          // not a bid we can decode
         }
       }
     }
-    if (txs.length < 50) break;
+    seen += txs.length;
+    const total = Number(body?.total ?? Number.NaN);
+    if (txs.length === 0 || (Number.isNaN(total) ? txs.length < 50 : seen >= total)) break;
+    // No bid is older than the start of bidding.
+    const oldest = Date.parse(txs[txs.length - 1]!.timestamp ?? "");
+    if (opts.since !== undefined && oldest / 1000 < Number(opts.since)) break;
   }
   return out;
+}
+
+/** One page of the search; undefined past the last page. Retries a failed read twice, then throws. */
+async function searchPage(rest: string, page: number, f: typeof globalThis.fetch, retryMs: number): Promise<TxSearch | undefined> {
+  const q = encodeURIComponent(`message.action='${EXECUTE_EVM}'`);
+  const url = `${rest.replace(/\/+$/, "")}/cosmos/tx/v1beta1/txs?query=${q}&order_by=ORDER_BY_DESC&limit=100&page=${page}`;
+  for (let attempt = 0; ; attempt++) {
+    let why: string;
+    try {
+      const res = await f(url);
+      if (res.ok) return (await res.json()) as TxSearch;
+      // The node answers HTTP 500 past the last page: "page should be within [1, 7] range, given 8".
+      const last = /page should be within \[1, (\d+)\] range/.exec(await res.text())?.[1];
+      if (last !== undefined && page > Number(last)) return undefined;
+      why = `HTTP ${res.status}`;
+    } catch (err) {
+      why = err instanceof Error ? err.message : String(err);
+    }
+    if (attempt === 2) throw new Error(`transaction search for bid envelopes failed at page ${page}: ${why}`);
+    await new Promise((r) => setTimeout(r, retryMs));
+  }
+}
+
+function base64ToHex(b64: string): Hex {
+  return toHex(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
 }
 
 function bech32ToHex(addr: string): Address {
@@ -156,23 +296,32 @@ export function openMemberShares(a: {
   const invalid: { bidId: bigint; reason: string }[] = [];
   let invalidBitmap = 0n;
   for (const b of a.bids) {
-    try {
-      const env = b.envelopes[a.index - 1];
-      if (!env) throw new Error("no envelope found for this bid");
-      const value = openShare({
-        envelope: hexToBytes(env),
-        keys: a.keys,
-        binding: { chainId: a.chainId, app: a.auction, sender: b.bidder, seq: b.seq },
-        index: a.index,
-        shareHash: b.shareHashes[a.index - 1]!,
-        sealChainId: a.sealChainId ?? SEAL_CHAIN_ID,
-        purpose: SHARE_PURPOSE,
-      });
-      shares.push(value);
-    } catch (err) {
+    let value: bigint | undefined;
+    let reason: string | undefined;
+    for (const set of [b.envelopes, ...(b.alternates ?? [])]) {
+      try {
+        const env = set[a.index - 1];
+        if (!env) throw new Error("no envelope found for this bid");
+        value = openShare({
+          envelope: hexToBytes(env),
+          keys: a.keys,
+          binding: { chainId: a.chainId, app: a.auction, sender: b.bidder, seq: b.seq },
+          index: a.index,
+          shareHash: b.shareHashes[a.index - 1]!,
+          sealChainId: a.sealChainId ?? SEAL_CHAIN_ID,
+          purpose: SHARE_PURPOSE,
+        });
+        break;
+      } catch (err) {
+        reason ??= err instanceof Error ? err.message : String(err);
+      }
+    }
+    if (value === undefined) {
       shares.push(0n);
       invalidBitmap |= 1n << b.bidId;
-      invalid.push({ bidId: b.bidId, reason: err instanceof Error ? err.message : String(err) });
+      invalid.push({ bidId: b.bidId, reason: reason! });
+    } else {
+      shares.push(value);
     }
   }
   return { shares, invalidBitmap, invalid };
