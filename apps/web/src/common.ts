@@ -245,6 +245,8 @@ export function header(title: string, cfg: AppConfig): void {
       h(
         "div.site-footer",
         "Bids are sealed in this browser: the plaintext never leaves the tab. A guest account, if you make one, lives only in this browser. ",
+        h("a", { href: "/judge" }, "For judges"),
+        " · ",
         h("a", { href: "https://github.com/Adityaakr/peal-sealed-auction", target: "_blank", rel: "noopener" }, "Source"),
         " · ",
         h("a", { href: "https://github.com/Adityaakr/peal-sealed-auction/blob/main/THREAT_MODEL.md", target: "_blank", rel: "noopener" }, "Threat model"),

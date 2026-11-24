@@ -2,6 +2,8 @@
 
 **A uniform-price sealed-bid auction on QoreChain whose bids no single key holder can open before the close.**
 
+> **On the jury? Start at <https://peal-sealed-auction.vercel.app/judge>.** No wallet, no account, no funds. It reads the two settled auctions live, and one button runs 19 attacks and 8 controls against the deployed testnet contracts (forged, early, replayed and edited releases, one member alone, a bid to the wrong committee) and shows the contract's own error names. Two of them are checks in your browser, and are marked so. It also shows one thing the contract does accept. The same from a terminal: `npm run judge:live`.
+
 QoreChain "Build Before Q-Day" Developer Fest · category **Encrypted Apps** · live on the QoreChain testnet (`qorechain-diana`) · Apache-2.0
 
 | | |
@@ -38,7 +40,7 @@ As a result:
 
 | Criterion | Where to check it |
 |---|---|
-| Works as described | [Try it in 5 minutes](#try-it-in-5-minutes) on the live site; two settled auctions that the results page re-verifies in your browser; `npm run e2e:local` and `npm run web:smoke` run a whole auction locally |
+| Works as described | [`/judge`](https://peal-sealed-auction.vercel.app/judge), with nothing to fund; [Try it in 5 minutes](#try-it-in-5-minutes) on the live site; two settled auctions that the results page re-verifies in your browser; `npm run e2e:local` and `npm run web:smoke` run a whole auction locally |
 | QoreChain tech, in the repo and on chain | [The category's requirements, with evidence](#the-categorys-requirements-with-evidence); every kit and network feature with its evidence in [`docs/kits.md`](docs/kits.md); `npm run evidence` re-checks every recorded transaction through the `qore` CLI (on 24 November: 33 of 33 native transactions with a verified ML-DSA-87 layer, 73 of 73 EVM transactions succeeded) |
 | Post-quantum correctness and security | [`docs/PQC.md`](docs/PQC.md): every `pqcVerify` and `pqcKeyStatus` call, what it protects, its tests and a testnet transaction; [`THREAT_MODEL.md`](THREAT_MODEL.md): every attack, what stops it and the test |
 | Originality | Threshold-shared bid keys under ML-KEM, ML-DSA-checked releases, and decryption by the contract itself, instead of QoreChain's one-auction-key recipe ([In one minute](#in-one-minute)); what came from the author's earlier project is listed in [Prior work](#prior-work) |
@@ -198,6 +200,9 @@ forge test            # 111 Solidity tests: unit, fuzz, invariants
 npm run test:ts       # client tests with real QoreSeal and ML-DSA-87
 npm run e2e:local     # a whole auction on anvil
 npm run web:smoke     # the landing page, a guest account's bid, then a whole auction, in headless Chromium
+npm run judge:live    # every attack of the judge page, against the testnet, from a terminal
+npm run web:build && npm run judge:smoke              # the judge page in headless Chromium, on recorded testnet answers
+npm run web:build && npm run judge:smoke -- --live    # the same against the testnet
 ```
 
 **The whole auction, locally** (`npm run e2e:local`). It uses real ML-DSA-87 keys and signatures, real QoreSeal envelopes, and the kit's real `verifyMember`. It checks:
@@ -220,12 +225,25 @@ npm run web           # terminal 2: http://localhost:5173 (the landing page; the
 Served from this machine, the pages use the local stack's config when it exists and the testnet otherwise; `?net=local` or `?net=testnet` chooses. On the local node the wallet drawer's guest account gets test QOR with one click.
 
 The pages:
+- **Judge** (`/judge`): live reads and attacks on the testnet contracts, with no wallet. Always the testnet. [How it works](#the-judge-page).
 - **Landing** (`/`): the mechanism, live figures, the evidence, and a guided first bid.
 - **Auctions:** every auction, newest first, with the open demo pinned on top.
 - **Issue:** open a sale, or a buyback (fUSD for PEAL-T).
 - **Bid:** check the committee's keys, then seal and commit in the browser, with the guest account or a dev account.
 - **Committee:** open your own shares in the browser (each is one random number), then sign and submit the release.
 - **Results:** close, open, finalize and pay out, all permissionless; *Claim my payout* for the account in use.
+
+### The judge page
+
+Every attack is an `eth_call`: no key, no account, nothing written. Three things make the refusals mean something:
+
+- **Each is aimed at one check, and the page says which check answered.** The error name is decoded from the contract's revert data. A refusal by any other check, an acceptance, and a call that could not run (the node is down, or no longer has the block) are three different results, and none counts as a pass.
+- **The release attacks run where they can reach the check.** Both demos are settled, so a forged release sent at the latest block would stop at `BadState(Settled)`. The page sends it at block 10,630,881, when the first open demo was really waiting for releases, beside member 1's genuine release, which the contract accepts there.
+- **What no call can reach is written under the attack.** `WrongShare` sits behind a member's signature. The contract cannot tell a bid sealed for a different committee of three, because envelopes are opaque to it: the bidder's browser refuses, and a row shows the contract accepting such a bid.
+
+These attempts need a node that still has the state of those blocks. On 25 November 2026 the public RPC kept about 30 days; the 16 November blocks therefore go first, around 16 December. Attempts at older blocks then say they could not run, and the last group, straight to `pqcVerify` at the latest block, still does.
+
+[`client/attempts.ts`](client/attempts.ts) is one self-contained file that other sites can copy; it needs only `viem`. It holds the call, the revert decoding, the verdicts and a batch that plays a whole flow (claim, approve, commit) in one `eth_call`. The attempts themselves are in [`client/judge.ts`](client/judge.ts).
 
 **On the testnet** (six fresh throwaway accounts; mnemonics in `~/.qore-peal-sealed-auction/<name>.env`, mode 0600, never in the repository):
 
@@ -317,10 +335,12 @@ What is protected, against whom, and what is not: [`THREAT_MODEL.md`](THREAT_MOD
 | `src/libraries/` | `ClearingPrice` (uniform clearing) and `AuctionMath` (price ladder, escrow and payment rounding, fee) |
 | `src/demo/` | PEAL-T demo token, a rate-limited faucet, and PEAL-B, a bond only post-quantum accounts may hold (Asset Kit guard) |
 | `client/` | TypeScript client: committee discovery and checks, bid sealing, share opening, release signing, chunked log reads, ABIs |
-| `apps/web/` | Landing page, and the auctions, issuer, bidder, committee and results pages (Vite, plain TypeScript, the shared Peal design language) |
+| `apps/web/` | Landing page, and the auctions, issuer, bidder, committee, results and judge pages (Vite, plain TypeScript, the shared Peal design language) |
 | `apps/web/src/wallet/` | The wallet drawer: guest account, QoreX, MetaMask |
 | `apps/web/DESIGN.md`, `apps/web/src/landing*` | The landing page's identity and its diagrams |
 | `vercel.json`, `scripts/web-preview.ts` | Hosting on Vercel, and a local preview with the same headers and rewrites |
+| `apps/web/src/judge.ts`, `client/judge.ts`, `client/attempts.ts` | The judge page, its attempts, and the copyable module they use |
+| `scripts/judge-live.ts`, `scripts/judge-smoke.ts`, `test-ts/fixtures/` | The attempts from a terminal, and the page in headless Chromium, live or on recorded testnet answers |
 | `apps/committee/` | The member step and the member daemon |
 | `proxy/` | Read-only, allowlisted GET proxy for the PQC REST routes (the public REST endpoint sends no CORS headers) |
 | `scripts/testnet/` | Accounts, setup, deploy, demo, windows |

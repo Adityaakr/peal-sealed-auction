@@ -58,3 +58,5 @@ jobs:
       - run: npx playwright-core install --only-shell chromium
       - run: npm run web:build
       - run: npm run web:smoke
+      # The production build's /judge page, on recorded testnet answers.
+      - run: npm run judge:smoke

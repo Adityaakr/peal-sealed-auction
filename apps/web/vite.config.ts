@@ -6,7 +6,7 @@ const rest = process.env.QORE_REST_URL?.trim() || "https://api-testnet.qore.host
 const evm = process.env.QORE_EVM_RPC_URL?.trim() || "https://evm-testnet.qore.host";
 const comet = process.env.QORE_COMET_RPC_URL?.trim() || "https://rpc-testnet.qore.host";
 
-const PAGES = ["index", "auctions", "issuer", "bidder", "committee", "results"];
+const PAGES = ["index", "auctions", "issuer", "bidder", "committee", "results", "judge"];
 
 /**
  * The REST API and the CometBFT RPC send no CORS headers, so the pages reach them
@@ -16,6 +16,18 @@ const PAGES = ["index", "auctions", "issuer", "bidder", "committee", "results"];
  */
 export default defineConfig({
   root: import.meta.dirname,
+  plugins: [
+    {
+      // /judge is judge.html, as the rewrite in vercel.json makes it when hosted.
+      name: "judge-route",
+      configureServer: (server) => {
+        server.middlewares.use((req, _res, next) => {
+          if (req.url && /^\/judge\/?(\?|$)/.test(req.url)) req.url = req.url.replace(/^\/judge\/?/, "/judge.html");
+          next();
+        });
+      },
+    },
+  ],
   build: {
     target: "es2022",
     outDir: resolve(import.meta.dirname, "dist"),

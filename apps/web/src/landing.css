@@ -264,6 +264,7 @@ body.landing::before {
   gap: 24px;
   margin-left: auto;
   font-size: 14px;
+  white-space: nowrap;
 }
 
 .landing .sa-links a {
@@ -349,6 +350,48 @@ body.landing::before {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.sa-jury {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 14px 18px;
+  border: 1px solid var(--brass-dim);
+  border-radius: 8px;
+  background: var(--brass-weak);
+  max-width: 620px;
+}
+
+.landing a.sa-jury {
+  color: var(--paper-2);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.sa-jury:hover {
+  border-color: var(--brass);
+  text-decoration: none;
+}
+
+.sa-jury:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+.sa-jury strong {
+  display: block;
+  color: var(--brass);
+  font-weight: 600;
+}
+
+.sa-jury svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--brass);
 }
 
 /* The vault: the open demo auction's slots. */
@@ -1187,6 +1230,13 @@ body.landing::before {
   .sa-ctas .sa-btn {
     flex: 1 1 100%;
     justify-content: center;
+  }
+  .sa-jury {
+    margin-top: 14px;
+    padding: 10px 14px;
+  }
+  .sa-jury strong + span {
+    display: none;
   }
   .sa-slots {
     grid-template-columns: repeat(2, minmax(0, 1fr));

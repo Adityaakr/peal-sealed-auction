@@ -5,6 +5,7 @@
   "outputDirectory": "apps/web/dist",
   "framework": null,
   "rewrites": [
+    { "source": "/judge", "destination": "/judge.html" },
     { "source": "/rest/qorechain/pqc/v1/:path*", "destination": "https://api-testnet.qore.host/qorechain/pqc/v1/:path*" },
     { "source": "/rest/qorechain/abstractaccount/v1/auth_nonce/:account/:key", "destination": "https://api-testnet.qore.host/qorechain/abstractaccount/v1/auth_nonce/:account/:key" },
     { "source": "/rest/qorechain/abstractaccount/v1/accounts/:account/spending_rules", "destination": "https://api-testnet.qore.host/qorechain/abstractaccount/v1/accounts/:account/spending_rules" },

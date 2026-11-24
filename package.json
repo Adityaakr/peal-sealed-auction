@@ -20,6 +20,8 @@
     "proxy": "tsx proxy/server.ts",
     "web:smoke": "forge build && tsx scripts/web-smoke.ts",
     "testnet": "tsx scripts/testnet/cli.ts",
+    "judge:live": "tsx scripts/judge-live.ts",
+    "judge:smoke": "tsx scripts/judge-smoke.ts",
     "web:preview": "tsx scripts/web-preview.ts",
     "evidence": "tsx scripts/evidence.ts",
     "cbom": "qorescan scan --network testnet --solidity src --solidity lib/qore-pq-kit/src --address qor1e8kr7whjwt2trzghlwswt337gptdn0jqz33zrh --address qor1vnhz8997jwcwss9sdl2f0husu5540phwjx0pdx --address qor1ppnar99nxc8wq4pyjwt029v0ktcel55952jaj3 --tls api-testnet.qore.host:443 --tls evm-testnet.qore.host:443 --name peal-sealed-auction --out docs/qorescan/cbom.json && qorescan template agility --cbom docs/qorescan/cbom.json --out docs/qorescan/agility-statement.md"

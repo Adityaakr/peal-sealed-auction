@@ -64,7 +64,7 @@ The orchestrator's specification for the 24 November fixes, verbatim, with local
 
 Everything in this repository:
 - the Solidity contracts and their 111 Foundry tests (unit, fuzz, and invariants with a random-actor handler; `forge test` on 24 November 2026);
-- the TypeScript client and its 43 tests (`npm run test:ts`);
+- the TypeScript client and its 51 tests (`npm run test:ts`);
 - the committee daemon;
 - the six web pages (the landing page, and the auctions, issuer, bidder, committee and results pages);
 - the REST proxy;
@@ -185,3 +185,11 @@ The worker also ran the testnet deployment and the demo auction.
   - The wallet drawer closes on success and the outcome is brought into view. A button copies the whole `qor1…` address. The escrow preview is computed in the page, so a slow reply cannot overwrite it. The results page uses plain words and token amounts. Shared links have a card.
   - Tests for wrong bundled cards (tampered, swapped, outsider-signed, malformed, self-consistent but false, broken signature) and for the recorded blocks. `e2e:local` also checks that the remainder of a bucketed escrow comes back.
   - Re-run on the production build against the testnet with two new guests; every hash is under `fixesTest` in `deployments/open-demo-0x53537D…5646.json`. The deployer spent 1.75 test QOR. CodeRabbit then left four inline comments on [the pull request](https://github.com/Adityaakr/peal-sealed-auction/pull/18) (a claim about fractional quantities, an audit report lost if a token name cannot be read, a copy button that redrew the drawer, a malformed bundle that stopped the check); all four were right and are fixed in it. Not tested: the dashboard faucet itself (it needs a sign-in), and the QoreX and MetaMask routes, which were not changed except that the drawer closes on success and the escrow is bucketed.
+
+### 2026-11-25
+
+- **A judge page with nothing to fund.** The owner approved closing the gaps a comparison with other entries had found ("go all three"); one was that a juror could not try anything without funding an account. A worker built `/judge` from a written spec: live reads, and real calls the deployed contracts refuse by name.
+  - The worker first probed what the public RPC answers. `eth_call` at old blocks works and the PQC precompiles answer there, so a genuine release is accepted one block before it landed and a forged one is refused by `ReleaseSignatureInvalid` in the same state. State overrides were the first idea for a fallback; under an override the precompiles answer nothing (`PqPrecompileUnavailable`), so they are not used.
+  - The forged signature is an outsider's valid ML-DSA-87 signature over the exact message, made once by `scripts/judge-fixture.ts` with a throwaway key that was not kept. The page holds no key.
+  - What a call cannot reach is stated in the page, and one row shows something the contract does accept (envelopes addressed to nobody).
+  - `npm run judge:live` (28 answers) and the headless browser run on the production build passed against the testnet. CI runs the browser part on recorded testnet answers.

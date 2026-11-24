@@ -74,7 +74,7 @@ function nav(): HTMLElement {
       family,
       h(
         "div.sa-links",
-        h("a", { href: "#problem" }, "Why"),
+        h("a", { href: "/judge" }, "Judges"),
         h("a", { href: "#anatomy" }, "How it works"),
         h("a", { href: "#keys" }, "Safety"),
         h("a", { href: "#reveal" }, "Proof"),
@@ -110,6 +110,12 @@ function hero(): HTMLElement {
           "Bids are encrypted in the bidder's browser. Each bid's key is split across a three-member committee, and each share is sealed with ML-KEM-1024. No single key holder can open a bid before the chain closes bidding. After that, any two members release, with ML-DSA-87 signatures the contract checks itself, and every bid clears at one price.",
         ),
         h("div.sa-ctas", h("a.sa-btn.sa-btn-brass", { href: appHref("bidder", cfg?.demoAuction), id: "hero-bid" }, "Place a sealed bid", icon("arrow")), tryBtn),
+        h(
+          "a.sa-jury",
+          { href: "/judge", id: "hero-judge" },
+          h("span", h("strong", "On the jury? Attack it with nothing to fund."), h("span", "Forged, early, replayed and edited releases against the live contracts. No wallet, no account.")),
+          icon("arrow"),
+        ),
       ),
       vault(),
     ),
@@ -695,7 +701,7 @@ function footer(): HTMLElement {
       h(
         "div.sa-foot-grid",
         h("div", h("a.sa-word", { href: "#top" }, mark("auction", "sa-mark", "dark"), "Peal Sealed Auction"), h("p", "A uniform-price sealed-bid auction on QoreChain whose bids no single key holder can open before the close.")),
-        col("Product", ["Auctions", appHref("auctions")], ["Place a bid", appHref("bidder", cfg?.demoAuction)], ["Results", appHref("results", cfg?.demoAuction)], ["Committee", appHref("committee")], ["Open an auction", appHref("issuer")]),
+        col("Product", ["For judges", "/judge"], ["Auctions", appHref("auctions")], ["Place a bid", appHref("bidder", cfg?.demoAuction)], ["Results", appHref("results", cfg?.demoAuction)], ["Committee", appHref("committee")], ["Open an auction", appHref("issuer")]),
         col("Developers", ["GitHub", REPO, true], ["Threat model", `${BLOB}/THREAT_MODEL.md`, true], ["Testnet findings", `${BLOB}/docs/spikes.md`, true], ["qore-pq-kit", "https://github.com/Adityaakr/qore-pq-kit", true]),
         col("Network", ["QoreChain", "https://qorechain.io", true], ["Testnet faucet", FAUCET_URL, true], ["How AI built this", `${BLOB}/AI_USAGE.md`, true]),
       ),
